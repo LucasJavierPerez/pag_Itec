@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 
-// GitHub Pages serves the site from /<repo>/; local dev stays at /
-export default defineConfig(({ command }) => ({
-  base: command === 'build' ? '/pag_Itec/' : '/',
-}));
+// Root path by default (Cloudflare, Netlify, local). For GitHub Pages build with BASE_PATH=/pag_Itec/
+export default defineConfig({
+  base: process.env.BASE_PATH ?? '/',
+});
