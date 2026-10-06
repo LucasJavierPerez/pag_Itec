@@ -14,6 +14,7 @@ import { QualityToggle } from './UI/QualityToggle.ts';
 import { ViewManager, getInitialView } from './UI/ViewManager.ts';
 import { MapView } from './Experience/Map/MapView.ts';
 import { getMapPoint } from './UI/MapData.ts';
+import { HudMenu } from './UI/HudMenu.ts';
 import { TouchControls } from './UI/TouchControls.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
@@ -88,11 +89,13 @@ const mapView = new MapView({
 
 // While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly
 let mapActive = false;
-new StyleSwitcher(initialStyle, {
+const styleSwitcher = new StyleSwitcher(initialStyle, {
   request: (id) =>
     mapActive ? experience.styleTransition.applyImmediately(id) : experience.styleTransition.request(id),
 });
-new QualityToggle(experience.quality);
+const qualityToggle = new QualityToggle(experience.quality);
+// Wraps both in a menu on small screens; on desktop the wrapper is layout-neutral
+new HudMenu([styleSwitcher.element, qualityToggle.element]);
 
 // Vehicle reset handler
 window.addEventListener('vehicle-reset', () => {

@@ -12,6 +12,8 @@ export interface InfoEntry {
   link?: { label: string; url: string };
 }
 
+const SWIPE_PX = 40;
+
 const DEFAULT_LINK = { label: 'Más info en itecriocuarto.org.ar →', url: 'https://www.itecriocuarto.org.ar' };
 
 export class InfoPanel {
@@ -55,6 +57,10 @@ export class InfoPanel {
     panel.id = 'info-panel';
     panel.setAttribute('aria-live', 'polite');
     panel.innerHTML = `
+      <div class="info-panel__bar">
+        <button type="button" class="info-panel__handle" aria-label="Cerrar tarjeta"><span class="info-panel__grip"></span></button>
+        <button type="button" class="info-panel__sheet-close" aria-label="Cerrar">&times;</button>
+      </div>
       <div class="info-panel__card">
         <div class="info-panel__accent"></div>
         <button class="info-panel__close" aria-label="Cerrar">&times;</button>
@@ -74,8 +80,35 @@ export class InfoPanel {
 
     const closeBtn = panel.querySelector('.info-panel__close') as HTMLButtonElement;
     closeBtn.addEventListener('click', () => this.hide());
+    this.setupSheetControls(panel);
 
     return panel;
+  }
+
+  /** Phone sheet: handle tap, close button and swipe-to-dismiss (hidden by CSS on desktop). */
+  private setupSheetControls(panel: HTMLDivElement): void {
+    const handle = panel.querySelector('.info-panel__handle') as HTMLButtonElement;
+    const sheetClose = panel.querySelector('.info-panel__sheet-close') as HTMLButtonElement;
+    const bar = panel.querySelector('.info-panel__bar') as HTMLDivElement;
+    handle.addEventListener('click', () => this.hide());
+    sheetClose.addEventListener('click', () => this.hide());
+
+    let startY: number | null = null;
+    bar.addEventListener('pointerdown', (e) => {
+      startY = e.clientY;
+    });
+    const finish = (e: PointerEvent) => {
+      if (startY === null) return;
+      const dy = e.clientY - startY;
+      startY = null;
+      // Map sheet is docked at the bottom (swipe down), explorer sheet at the top (swipe up)
+      const dismiss = document.body.dataset.view === 'map' ? dy > SWIPE_PX : dy < -SWIPE_PX;
+      if (dismiss) this.hide();
+    };
+    bar.addEventListener('pointerup', finish);
+    bar.addEventListener('pointercancel', () => {
+      startY = null;
+    });
   }
 
   /** Classroom card (explorer): image, duration pill and the fixed default link. */
@@ -150,6 +183,7 @@ export class InfoPanel {
     }
 
     this.panel.classList.add('info-panel--visible');
+    document.body.classList.add('info-open');
     this.isVisible = true;
   }
 
@@ -161,6 +195,7 @@ export class InfoPanel {
   hide(): void {
     if (!this.isVisible) return;
     this.panel.classList.remove('info-panel--visible');
+    document.body.classList.remove('info-open');
     this.isVisible = false;
     this.source = null;
   }
@@ -169,6 +204,7 @@ export class InfoPanel {
     window.removeEventListener('classroom-enter', this.onEnter);
     window.removeEventListener('classroom-leave', this.onLeave);
     window.removeEventListener('keydown', this.onKey);
+    document.body.classList.remove('info-open');
     this.panel.remove();
   }
 }

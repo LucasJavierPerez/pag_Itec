@@ -15,6 +15,31 @@
   --safe-left: env(safe-area-inset-left, 0px);
 }
 
+/* === Viewport units: dynamic viewport where supported (mobile URL bar), 100vh fallback === */
+html,
+body {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+#webgl,
+#loading-screen {
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* === Compact HUD wrapper (desktop: layout-neutral) === */
+.hud-menu {
+  display: contents;
+}
+.hud-menu__button,
+.hud-menu__fullscreen,
+.info-panel__bar,
+.view-tabs__short {
+  display: none;
+}
+
 /* === Touch controls (virtual joystick + reset) === */
 .touch-controls {
   display: none;
@@ -141,6 +166,394 @@ body[data-view='map'] .touch-controls {
 @media (prefers-reduced-motion: reduce) {
   .touch-controls__stick,
   .touch-controls__hint {
+    transition: none;
+  }
+}
+
+/* === Coarse pointers: every interactive target is at least 44x44 === */
+@media (pointer: coarse) {
+  .style-switcher__button,
+  .quality-toggle,
+  .view-tabs__tab,
+  .map-hud__button,
+  .map-legend__toggle,
+  .map-legend__item,
+  .info-panel__close,
+  .hud-menu__fullscreen {
+    min-height: var(--touch-target);
+  }
+  .map-hud__button,
+  .info-panel__close {
+    min-width: var(--touch-target);
+  }
+  .info-panel__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .info-panel__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--touch-target);
+  }
+}
+
+/* === Compact HUD: phones (<= 640px wide) and landscape phones (<= 480px tall) ===
+ * Keep this query in sync with COMPACT_QUERY in MapLegend.ts.
+ */
+@media (max-width: 640px), (max-height: 480px) and (orientation: landscape) {
+  :root {
+    --ui-font-size: 0.875rem;
+  }
+  html[data-style='voxel'] {
+    --ui-font-size: 0.66rem;
+  }
+
+  /* Menu button (top-left) and its panel */
+  .hud-menu__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: calc(var(--safe-top) + 10px);
+    left: calc(var(--safe-left) + 10px);
+    z-index: 47;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--ui-surface);
+    border: var(--ui-border);
+    border-radius: 50%;
+    box-shadow: var(--ui-shadow);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .hud-menu--open .hud-menu__button {
+    background: var(--ui-active-bg);
+    color: var(--ui-active-fg);
+  }
+  .hud-menu__button:focus-visible,
+  .hud-menu__fullscreen:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+  .hud-menu__panel {
+    display: none;
+  }
+  .hud-menu--open .hud-menu__panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: fixed;
+    top: calc(var(--safe-top) + 64px);
+    left: calc(var(--safe-left) + 10px);
+    z-index: 47;
+    width: min(320px, calc(100vw - 20px - var(--safe-left) - var(--safe-right)));
+    max-height: calc(100vh - 76px - var(--safe-top) - var(--safe-bottom));
+    max-height: calc(100dvh - 76px - var(--safe-top) - var(--safe-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    color: var(--text-primary);
+    font-family: var(--ui-font);
+    font-size: var(--ui-font-size);
+    background: var(--ui-surface);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: var(--ui-border);
+    border-radius: var(--ui-radius);
+    box-shadow: var(--ui-shadow);
+    clip-path: var(--ui-clip);
+  }
+  /* Controls adopted by the menu lose their floating-widget chrome */
+  body .hud-menu .hud-menu__panel .style-switcher {
+    position: static;
+    inset: auto;
+    transform: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    clip-path: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    font-size: var(--ui-font-size);
+  }
+  body .hud-menu .hud-menu__panel .style-switcher__label {
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  body .hud-menu .hud-menu__panel .style-switcher__button {
+    min-height: var(--touch-target);
+    font-size: var(--ui-font-size);
+  }
+  body .hud-menu .hud-menu__panel .quality-toggle,
+  body .hud-menu .hud-menu__panel .hud-menu__fullscreen {
+    position: static;
+    inset: auto;
+    display: block;
+    width: 100%;
+    min-height: var(--touch-target);
+    padding: 8px 14px;
+    font: inherit;
+    font-size: var(--ui-font-size);
+    font-weight: var(--ui-font-weight);
+    text-align: center;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--ui-btn-bg);
+    border: var(--ui-btn-border);
+    border-radius: var(--ui-btn-radius);
+    box-shadow: var(--ui-btn-shadow);
+    clip-path: var(--ui-btn-clip);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* View tabs: top-center, icon + short label, clear of the menu button */
+  .view-tabs {
+    top: calc(var(--safe-top) + 6px);
+    padding: 4px;
+    gap: 4px;
+  }
+  .view-tabs__tab {
+    min-height: var(--touch-target);
+    padding: 0 12px;
+    gap: 6px;
+  }
+  .view-tabs__label {
+    display: none;
+  }
+  .view-tabs__short {
+    display: inline;
+  }
+
+  /* Map zoom HUD: column on the right, under the tabs row */
+  .map-hud {
+    top: calc(var(--safe-top) + 64px);
+    right: calc(var(--safe-right) + 10px);
+    flex-direction: column;
+  }
+  .map-hud__button {
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+  }
+
+  /* Map legend: collapsed bottom-left drawer, hidden while a card is open */
+  .map-legend {
+    left: calc(var(--safe-left) + 10px);
+    bottom: calc(var(--safe-bottom) + 10px);
+    width: min(300px, calc(100vw - 20px - var(--safe-left) - var(--safe-right)));
+  }
+  .map-legend__toggle {
+    min-height: 48px;
+  }
+  .map-legend__body {
+    max-height: 50vh;
+    max-height: calc(50dvh - var(--safe-bottom));
+  }
+  .map-legend__item {
+    min-height: var(--touch-target);
+    padding: 8px 10px;
+  }
+  .map-legend__name {
+    font-size: var(--ui-font-size);
+  }
+  body.info-open[data-view='map'] .map-legend {
+    display: none;
+  }
+
+  /* Info card: sheet chrome (handle + close), readable text */
+  #info-panel {
+    display: flex;
+    visibility: hidden;
+    max-width: none;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.35s;
+  }
+  #info-panel.info-panel--visible {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+  .info-panel__bar {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: var(--touch-target);
+    background: var(--panel-bg);
+    touch-action: none;
+  }
+  .info-panel__handle {
+    flex: 1;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+    background: none;
+    border: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .info-panel__grip {
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.4);
+  }
+  .info-panel__sheet-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    padding: 0;
+    cursor: pointer;
+    font-size: 1.75rem;
+    line-height: 1;
+    color: var(--text-primary);
+    background: none;
+    border: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .info-panel__handle:focus-visible,
+  .info-panel__sheet-close:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: -4px;
+  }
+  .info-panel__close {
+    display: none;
+  }
+  .info-panel__card {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 18px;
+    padding-bottom: calc(18px + var(--safe-bottom));
+  }
+  .info-panel__accent {
+    margin: -18px -18px 14px -18px;
+  }
+  .info-panel__description,
+  .info-panel__subtitle {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+  .info-panel__chip,
+  .info-panel__link,
+  .info-panel__duration {
+    font-size: 0.875rem;
+  }
+  .info-panel__image-container {
+    height: 110px;
+  }
+}
+
+/* Portrait phones, explorer: sheet docked under the HUD row (top), so the bottom ~45%
+ * stays free for the joystick and the reset button. */
+@media (max-width: 640px) and (min-height: 481px) {
+  #info-panel {
+    top: calc(var(--safe-top) + 64px);
+    left: calc(var(--safe-left) + 8px);
+    right: calc(var(--safe-right) + 8px);
+    bottom: auto;
+    width: auto;
+    max-height: calc(55vh - 64px);
+    max-height: calc(55dvh - 64px);
+    flex-direction: column-reverse;
+    transform: translateY(calc(-100% - 80px));
+  }
+  #info-panel.info-panel--visible {
+    left: calc(var(--safe-left) + 8px);
+    right: calc(var(--safe-right) + 8px);
+    transform: none;
+  }
+  .info-panel__bar {
+    border-radius: 0 0 14px 14px;
+  }
+  .info-panel__card {
+    border-radius: 14px 14px 0 0;
+    padding-bottom: 18px;
+  }
+
+  /* Map: no joystick, so a regular bottom sheet */
+  body[data-view='map'] #info-panel {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: 55vh;
+    max-height: 55dvh;
+    flex-direction: column;
+    transform: translateY(calc(100% + 40px));
+  }
+  body[data-view='map'] #info-panel.info-panel--visible {
+    left: 0;
+    right: 0;
+    transform: none;
+  }
+  body[data-view='map'] .info-panel__bar {
+    border-radius: 14px 14px 0 0;
+  }
+  body[data-view='map'] .info-panel__card {
+    border-radius: 0;
+    padding-bottom: calc(18px + var(--safe-bottom));
+  }
+}
+
+/* Landscape phones: side sheet on the right, 50% wide, under the HUD row */
+@media (max-height: 480px) and (orientation: landscape) {
+  #info-panel {
+    top: calc(var(--safe-top) + 64px);
+    bottom: calc(var(--safe-bottom) + 84px);
+    left: auto;
+    right: calc(var(--safe-right) + 10px);
+    width: min(50vw, 420px);
+    max-height: none;
+    flex-direction: column;
+    transform: translateX(calc(100% + 40px));
+  }
+  #info-panel.info-panel--visible {
+    right: calc(var(--safe-right) + 10px);
+    transform: none;
+  }
+  body[data-view='map'] #info-panel,
+  body[data-view='map'] #info-panel.info-panel--visible {
+    right: calc(var(--safe-right) + 74px);
+    bottom: calc(var(--safe-bottom) + 10px);
+  }
+  .info-panel__grip {
+    display: none;
+  }
+  .info-panel__bar {
+    justify-content: flex-end;
+    border-radius: 14px 14px 0 0;
+  }
+  .info-panel__handle {
+    display: none;
+  }
+  .info-panel__card {
+    border-radius: 0 0 14px 14px;
+    padding-bottom: 18px;
+  }
+  .touch-controls__zone {
+    height: min(70vh, 300px);
+    height: min(70dvh, 300px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #info-panel,
+  #info-panel.info-panel--visible {
     transition: none;
   }
 }

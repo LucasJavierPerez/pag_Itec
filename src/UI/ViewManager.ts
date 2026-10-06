@@ -57,8 +57,8 @@ export class ViewManager extends EventTarget {
     this._root.setAttribute('role', 'tablist');
     this._root.setAttribute('aria-label', 'Vista');
 
-    this._addTab('explorer', 'Explorador 3D', ICON_EXPLORER);
-    this._addTab('map', 'Mapa', ICON_MAP);
+    this._addTab('explorer', 'Explorador 3D', '3D', ICON_EXPLORER);
+    this._addTab('map', 'Mapa', 'Mapa', ICON_MAP);
     this._root.addEventListener('keydown', (e) => this._onKeyDown(e));
     document.body.appendChild(this._root);
 
@@ -81,14 +81,14 @@ export class ViewManager extends EventTarget {
     });
   }
 
-  private _addTab(id: ViewId, label: string, icon: string): void {
+  private _addTab(id: ViewId, label: string, shortLabel: string, icon: string): void {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'view-tabs__tab';
     button.id = `view-tab-${id}`;
     button.setAttribute('role', 'tab');
     button.setAttribute('aria-label', label);
-    button.innerHTML = `<span class="view-tabs__icon">${icon}</span><span class="view-tabs__label">${label}</span>`;
+    button.innerHTML = `<span class="view-tabs__icon">${icon}</span><span class="view-tabs__label">${label}</span><span class="view-tabs__short" aria-hidden="true">${shortLabel}</span>`;
     button.addEventListener('click', (e) => {
       // Mouse clicks release focus so WASD never gets swallowed; keyboard users keep it
       if (e.detail > 0) button.blur();

@@ -36,6 +36,10 @@ export class StyleSwitcher {
     document.body.appendChild(this.root);
   }
 
+  get element(): HTMLElement {
+    return this.root;
+  }
+
   setActive(id: StyleId): void {
     for (const [key, button] of this.buttons) {
       const active = key === id;

@@ -27,6 +27,10 @@ export class QualityToggle {
     document.body.appendChild(this._button);
   }
 
+  get element(): HTMLElement {
+    return this._button;
+  }
+
   private _render(): void {
     const high = this._quality.level === 'high';
     this._button.textContent = `Calidad: ${high ? 'Alta' : 'Baja'}`;

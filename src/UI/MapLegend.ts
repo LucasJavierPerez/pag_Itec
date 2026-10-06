@@ -1,5 +1,8 @@
 import { DISTRICTS, MAP_POINTS } from './MapData.ts';
 
+/** Same breakpoint as the compact HUD in ui-mobile.css. */
+const COMPACT_QUERY = '(max-width: 640px), (max-height: 480px) and (orientation: landscape)';
+
 /**
  * Accessible list of every point of interest, grouped by district. Each entry is a real
  * button, so the map is fully usable without a mouse. Collapsible (collapsed by default on phones).
@@ -56,7 +59,11 @@ export class MapLegend {
         name.className = 'map-legend__name';
         name.textContent = point.name;
         button.append(swatch, name);
-        button.addEventListener('click', (e) => onSelect(point.id, e));
+        button.addEventListener('click', (e) => {
+          onSelect(point.id, e);
+          // On phones the open list would cover the map the robot is about to cross
+          if (window.matchMedia?.(COMPACT_QUERY).matches) this.setOpen(false);
+        });
         li.appendChild(button);
         list.appendChild(li);
         this._items.set(point.id, button);
@@ -66,7 +73,9 @@ export class MapLegend {
     }
 
     this.element.append(this._toggle, this._body);
-    this.setOpen(window.matchMedia?.('(min-width: 900px)').matches ?? true);
+    this.setOpen(
+      (window.matchMedia?.('(min-width: 900px)').matches ?? true) && !window.matchMedia?.(COMPACT_QUERY).matches,
+    );
   }
 
   setOpen(open: boolean): void {
