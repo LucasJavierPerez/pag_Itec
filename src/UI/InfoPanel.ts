@@ -14,6 +14,16 @@ export interface InfoEntry {
 
 const SWIPE_PX = 40;
 
+/** Turns a chip text into a tappable contact link, only when it is a real contact string. */
+function contactHref(text: string): string | null {
+  const wa = /^WhatsApp:?\s*(\d{10})$/i.exec(text.trim());
+  if (wa) return `https://wa.me/54${wa[1]}`;
+  const phone = /^0(\d{3})-?(\d{6,7})$/.exec(text.trim());
+  if (phone) return `tel:+54${phone[1]}${phone[2]}`;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) return `mailto:${text.trim()}`;
+  return null;
+}
+
 const DEFAULT_LINK = { label: 'Más info en itecriocuarto.org.ar →', url: 'https://www.itecriocuarto.org.ar' };
 
 export class InfoPanel {
@@ -166,8 +176,17 @@ export class InfoPanel {
 
     highlights.innerHTML = '';
     for (const h of info.highlights) {
-      const chip = document.createElement('span');
+      const href = contactHref(h);
+      const chip = document.createElement(href ? 'a' : 'span');
       chip.className = 'info-panel__chip';
+      if (chip instanceof HTMLAnchorElement && href) {
+        chip.href = href;
+        chip.classList.add('info-panel__chip--link');
+        if (href.startsWith('https:')) {
+          chip.target = '_blank';
+          chip.rel = 'noopener';
+        }
+      }
       chip.style.background = info.accent + '33'; // color with low opacity
       chip.style.borderColor = info.accent + '80';
       chip.textContent = h;

@@ -33,6 +33,14 @@ const KEY_ZOOM_STEP = 1.25;
 const FOLLOW_DAMPING = 3.2;
 /** A press that moves less than this (px) is a click, not a drag. */
 const DRAG_THRESHOLD = 6;
+/** Fingers wobble more than a mouse: touch taps tolerate more movement. */
+const DRAG_THRESHOLD_TOUCH = 8;
+/** Extra pick radius (px) around a touch tap: ~1.4x bigger targets for fingertips. */
+const TOUCH_PICK_RADIUS = 14;
+/** Two taps within this time (ms) and distance (px) on empty ground zoom in one step. */
+const DOUBLE_TAP_MS = 320;
+const DOUBLE_TAP_DIST = 30;
+const DOUBLE_TAP_ZOOM = 1.8;
 /** How far the view target may leave the map. */
 const PAN_LIMIT_X = MAP_SIZE.w / 2 - 4;
 const PAN_LIMIT_Z_MIN = MAP_SIZE.cz - MAP_SIZE.d / 2 + 4;
@@ -84,7 +92,8 @@ export class MapView {
   private _anchor: { x: number; y: number } | null = null;
 
   private _pointers = new Map<number, { x: number; y: number }>();
-  private _drag: { moved: boolean; startX: number; startY: number; downTime: number } | null = null;
+  private _drag: { moved: boolean; startX: number; startY: number; downTime: number; threshold: number } | null = null;
+  private _lastTap: { time: number; x: number; y: number } | null = null;
   private _pinch: { dist: number; ppu: number } | null = null;
   private _hoverRequest: { x: number; y: number } | null = null;
   private _hoverId: string | null = null;
@@ -215,6 +224,7 @@ export class MapView {
     this._pointers.clear();
     this._drag = null;
     this._pinch = null;
+    this._lastTap = null;
     this._setHover(null);
     this.root.hidden = true;
   }
@@ -373,10 +383,17 @@ export class MapView {
   // ------------------------------------------------------------- interaction
 
   private _onPointerDown(e: PointerEvent): void {
-    this._canvas.setPointerCapture(e.pointerId);
+    try {
+      this._canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // the pointer may already be gone; tracking by pointer id still works
+    }
     this._pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (this._pointers.size === 1) {
-      this._drag = { moved: false, startX: e.clientX, startY: e.clientY, downTime: performance.now() };
+      this._drag = { moved: false, startX: e.clientX, startY: e.clientY,
+        downTime: performance.now(),
+        threshold: e.pointerType === 'mouse' ? DRAG_THRESHOLD : DRAG_THRESHOLD_TOUCH,
+      };
     } else if (this._pointers.size === 2) {
       const [a, b] = [...this._pointers.values()];
       this._pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, ppu: this._ppuGoal };
@@ -421,7 +438,7 @@ export class MapView {
 
     const drag = this._drag;
     if (!drag) return;
-    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > DRAG_THRESHOLD) {
+    if (!drag.moved && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > drag.threshold) {
       drag.moved = true;
       this._canvas.classList.add('map-view__canvas--dragging');
       this._setHover(null);
@@ -440,8 +457,21 @@ export class MapView {
       this._drag = null;
       this._canvas.classList.remove('map-view__canvas--dragging');
       if (drag && !drag.moved && !cancelled && performance.now() - drag.downTime < 700) {
-        const id = this._pick(e.clientX, e.clientY);
-        if (id) this.select(id, e.shiftKey);
+        const touch = e.pointerType !== 'mouse';
+        const id = touch ? this._pickTolerant(e.clientX, e.clientY) : this._pick(e.clientX, e.clientY);
+        if (id) {
+          this._lastTap = null;
+          this.select(id, e.shiftKey);
+        } else if (touch) {
+          const now = performance.now();
+          const last = this._lastTap;
+          if (last && now - last.time < DOUBLE_TAP_MS && Math.hypot(e.clientX - last.x, e.clientY - last.y) < DOUBLE_TAP_DIST) {
+            this._lastTap = null;
+            this._zoomBy(DOUBLE_TAP_ZOOM, e.clientX, e.clientY);
+          } else {
+            this._lastTap = { time: now, x: e.clientX, y: e.clientY };
+          }
+        }
       }
     }
   }
@@ -464,6 +494,18 @@ export class MapView {
       this._zoomBy(1 / KEY_ZOOM_STEP);
       e.preventDefault();
     }
+  }
+
+  /** `_pick` with a ring of extra samples around the tap, so fingertips can hit small targets. */
+  private _pickTolerant(px: number, py: number): string | null {
+    const direct = this._pick(px, py);
+    if (direct) return direct;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const id = this._pick(px + Math.cos(a) * TOUCH_PICK_RADIUS, py + Math.sin(a) * TOUCH_PICK_RADIUS);
+      if (id) return id;
+    }
+    return null;
   }
 
   /** Id of the point under the screen position, or null. */

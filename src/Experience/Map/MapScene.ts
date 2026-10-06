@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { isCoarsePointer } from '../../utils/device.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DISTRICTS, MAP_POINTS } from '../../UI/MapData.ts';
 import type { MapPoint } from '../../UI/MapData.ts';
@@ -26,8 +27,10 @@ const RING_Y = 0.34;
 const RING_INNER = 1.25;
 const RING_OUTER = 1.7;
 
-const LABEL_PX = 30;
-const DISTRICT_LABEL_PX = 36;
+/** Labels are a constant size on screen; fingertip devices get slightly larger ones. */
+const LABEL_SCALE = isCoarsePointer() ? 1.15 : 1;
+const LABEL_PX = 30 * LABEL_SCALE;
+const DISTRICT_LABEL_PX = 36 * LABEL_SCALE;
 /** Point labels need at least this many pixels per world unit to be readable. */
 export const LABEL_MIN_PPU = 11;
 /** District captions fade out once zoomed this far in. */
