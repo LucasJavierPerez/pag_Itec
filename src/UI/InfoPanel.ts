@@ -17,7 +17,7 @@ const SWIPE_PX = 40;
 /** Turns a chip text into a tappable contact link, only when it is a real contact string. */
 function contactHref(text: string): string | null {
   const wa = /^WhatsApp:?\s*(\d{10})$/i.exec(text.trim());
-  if (wa) return `https://wa.me/54${wa[1]}`;
+  if (wa) return `https://wa.me/549${wa[1]}`;
   const phone = /^0(\d{3})-?(\d{6,7})$/.exec(text.trim());
   if (phone) return `tel:+54${phone[1]}${phone[2]}`;
   if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text.trim())) return `mailto:${text.trim()}`;
