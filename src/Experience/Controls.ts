@@ -2,7 +2,7 @@ import type { Vehicle } from './Physics/Vehicle.ts';
 
 export class Controls {
   private keys = { forward: false, backward: false, left: false, right: false };
-  private touch = { forward: false, backward: false, left: false, right: false };
+  private touch: { dirX: number; dirZ: number; strength: number } | null = null;
   private onKeyDown: (e: KeyboardEvent) => void;
   private onKeyUp: (e: KeyboardEvent) => void;
 
@@ -23,18 +23,19 @@ export class Controls {
     }
   }
 
-  /** Virtual joystick state, merged (OR) with the keyboard so desktop behavior is unchanged. */
-  setTouchState(state: { forward: boolean; backward: boolean; left: boolean; right: boolean }): void {
-    this.touch.forward = state.forward;
-    this.touch.backward = state.backward;
-    this.touch.left = state.left;
-    this.touch.right = state.right;
+  /** Virtual joystick direction (screen-relative); null or inactive when released. */
+  setTouchDirection(state: { active: boolean; dirX: number; dirZ: number; strength: number } | null): void {
+    this.touch = state && state.active ? state : null;
   }
 
   update(vehicle: Vehicle): void {
     const k = this.keys;
-    const t = this.touch;
-    vehicle.applyMovement(k.forward || t.forward, k.backward || t.backward, k.left || t.left, k.right || t.right);
+    const keyboard = k.forward || k.backward || k.left || k.right;
+    if (this.touch && !keyboard) {
+      vehicle.applyDirectional(this.touch.dirX, this.touch.dirZ, this.touch.strength);
+      return;
+    }
+    vehicle.applyMovement(k.forward, k.backward, k.left, k.right);
   }
 
   dispose(): void {

@@ -1,5 +1,5 @@
-import { stickToKeys } from './joystickMapping.ts';
-import type { StickKeys } from './joystickMapping.ts';
+import { stickToDirection } from './joystickMapping.ts';
+import type { StickDirection } from './joystickMapping.ts';
 import { haptic, isCoarsePointer, onCoarsePointerChange } from '../utils/device.ts';
 
 /** Stick travel in CSS px (half of the base diameter). Keep in sync with --touch-stick-size. */
@@ -7,16 +7,12 @@ const STICK_RADIUS = 56;
 const DEAD_ZONE = 0.25;
 const HINT_MS = 6000;
 
-const NONE: StickKeys = { forward: false, backward: false, left: false, right: false };
-
-function sameKeys(a: StickKeys, b: StickKeys): boolean {
-  return a.forward === b.forward && a.backward === b.backward && a.left === b.left && a.right === b.right;
-}
+const NONE: StickDirection = { active: false, dirX: 0, dirZ: 0, strength: 0 };
 
 /**
  * Virtual joystick (floating base, left side) plus a reset button (bottom-right).
  * Only visible on coarse pointers and while the 3D explorer is the active view.
- * Output goes through `onChange` as the same four booleans the keyboard produces.
+ * Output goes through `onChange` as a screen-relative direction (up = -Z, right = +X).
  */
 export class TouchControls {
   private _root: HTMLDivElement;
@@ -26,8 +22,8 @@ export class TouchControls {
   private _reset: HTMLButtonElement;
   private _hint: HTMLParagraphElement;
 
-  private _onChange: (keys: StickKeys) => void;
-  private _keys: StickKeys = NONE;
+  private _onChange: (dir: StickDirection) => void;
+  private _dir: StickDirection = NONE;
   private _pointerId: number | null = null;
   private _originX = 0;
   private _originY = 0;
@@ -44,7 +40,7 @@ export class TouchControls {
   private _onBlur = () => this._release();
   private _onEvent = () => haptic(8);
 
-  constructor(onChange: (keys: StickKeys) => void) {
+  constructor(onChange: (dir: StickDirection) => void) {
     this._onChange = onChange;
 
     this._root = document.createElement('div');
@@ -70,7 +66,7 @@ export class TouchControls {
 
     this._hint = document.createElement('p');
     this._hint.className = 'touch-controls__hint';
-    this._hint.textContent = 'Arrastrá el joystick para mover al robot';
+    this._hint.textContent = 'Arrastrá el joystick: el robot va hacia donde empujás';
     this._hint.setAttribute('aria-hidden', 'true');
 
     this._root.append(this._zone, this._reset, this._hint);
@@ -181,7 +177,7 @@ export class TouchControls {
       dy = (dy / len) * STICK_RADIUS;
     }
     this._knob.style.transform = `translate(${dx}px, ${dy}px)`;
-    this._emit(stickToKeys(dx, dy, STICK_RADIUS, DEAD_ZONE, this._keys));
+    this._emit(stickToDirection(dx, dy, STICK_RADIUS, DEAD_ZONE, this._dir.active));
   }
 
   private _release(): void {
@@ -203,10 +199,18 @@ export class TouchControls {
     this._emit(NONE);
   }
 
-  private _emit(keys: StickKeys): void {
-    if (sameKeys(keys, this._keys)) return;
-    this._keys = keys;
-    this._onChange(keys);
+  private _emit(dir: StickDirection): void {
+    const prev = this._dir;
+    if (
+      dir.active === prev.active &&
+      dir.dirX === prev.dirX &&
+      dir.dirZ === prev.dirZ &&
+      dir.strength === prev.strength
+    ) {
+      return;
+    }
+    this._dir = dir;
+    this._onChange(dir);
   }
 
   dispose(): void {

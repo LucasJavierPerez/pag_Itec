@@ -1,4 +1,12 @@
 import * as CANNON from 'cannon-es';
+import { shortestAngle, stepYaw } from './steering.ts';
+
+/** Top forward speed in m/s (keyboard and full joystick push). */
+const MOVE_SPEED = 5;
+/** Auto-turn rate toward the joystick direction, rad/s. */
+const DIRECTIONAL_TURN_RATE = 9;
+/** Speed factor at the lightest joystick push (full push = 1). */
+const DIRECTIONAL_MIN_SPEED = 0.45;
 
 export class Vehicle {
   chassisBody: CANNON.Body;
@@ -15,7 +23,7 @@ export class Vehicle {
   }
 
   applyMovement(forward: boolean, backward: boolean, left: boolean, right: boolean): void {
-    const speed = 5;
+    const speed = MOVE_SPEED;
     const turnSpeed = 2;
 
     // Turning
@@ -37,6 +45,24 @@ export class Vehicle {
     }
 
     // Keep Y velocity for gravity (don't override it)
+  }
+
+  /**
+   * Screen-relative drive: turns toward the world-space direction (dirX, dirZ) and moves
+   * along the current facing, slower while it is still misaligned.
+   */
+  applyDirectional(dirX: number, dirZ: number, strength: number): void {
+    const target = Math.atan2(dirX, dirZ);
+    this.yaw = stepYaw(this.yaw, target, DIRECTIONAL_TURN_RATE, 1 / 60);
+
+    this.chassisBody.quaternion.setFromEuler(0, this.yaw, 0);
+    this.chassisBody.angularVelocity.set(0, 0, 0);
+
+    const alignment = Math.max(0, Math.cos(shortestAngle(this.yaw, target)));
+    const s = Math.min(1, Math.max(0, strength));
+    const speed = MOVE_SPEED * (DIRECTIONAL_MIN_SPEED + (1 - DIRECTIONAL_MIN_SPEED) * s) * alignment;
+    this.chassisBody.velocity.x = Math.sin(this.yaw) * speed;
+    this.chassisBody.velocity.z = Math.cos(this.yaw) * speed;
   }
 
   reset(): void {

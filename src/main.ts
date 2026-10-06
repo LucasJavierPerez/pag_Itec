@@ -53,7 +53,7 @@ experience.world.attachBall(ball);
 
 // Controls
 const controls = new Controls();
-const touchControls = new TouchControls((keys) => controls.setTouchState(keys));
+const touchControls = new TouchControls((dir) => controls.setTouchDirection(dir));
 
 // Trigger zones
 const triggers = new Triggers(
