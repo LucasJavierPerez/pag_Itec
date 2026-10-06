@@ -845,3 +845,8 @@ body[data-view='map'] #controls-hint {
     transition: none;
   }
 }
+
+/* === Info card: map entries (optional link) === */
+.info-panel__link[hidden] {
+  display: none;
+}

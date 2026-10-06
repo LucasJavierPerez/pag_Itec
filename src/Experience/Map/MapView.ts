@@ -8,7 +8,9 @@ import { MapScene } from './MapScene.ts';
 import { RobotActor } from './RobotActor.ts';
 import { getMapSkin } from './skins/index.ts';
 import type { MapLights } from './skins/index.ts';
-import { MAP_SIZE } from './mapLayout.ts';
+import { MAP_SIZE, PLACEMENTS } from './mapLayout.ts';
+import { createLayoutGraph } from './roadGraph.ts';
+import { RobotRunner } from './RobotRunner.ts';
 
 // ---- Tunable camera constants
 /** Camera elevation above the horizon (90 = straight down). */
@@ -25,6 +27,8 @@ const MAX_PPU = 150;
 const ZOOM_SMOOTHING = 14;
 const WHEEL_SENSITIVITY = 0.0016;
 const KEY_ZOOM_STEP = 1.25;
+/** How quickly the camera glides after the robot (higher = tighter). */
+const FOLLOW_DAMPING = 3.2;
 /** A press that moves less than this (px) is a click, not a drag. */
 const DRAG_THRESHOLD = 6;
 /** How far the view target may leave the map. */
@@ -36,8 +40,10 @@ export interface MapViewOptions {
   quality: QualityController;
   /** Style currently active in the explorer (read on activation). */
   getStyleId: () => StyleId;
-  /** A landmark, ring, label or legend entry was chosen. */
-  onSelect: (pointId: string) => void;
+  /** The robot reached the point (or was already there): open its card. */
+  onArrive: (pointId: string) => void;
+  /** A new run starts: close the previous card. */
+  onDepart: () => void;
 }
 
 /**
@@ -56,6 +62,9 @@ export class MapView {
   private _scene: MapScene | null = null;
   private _lights: MapLights | null = null;
   private _robot: RobotActor | null = null;
+  private _runner: RobotRunner | null = null;
+  private _graph = createLayoutGraph();
+  private _follow = false;
   private _builtStyle: StyleId | null = null;
   private _dirty = true;
   private _active = false;
@@ -114,7 +123,7 @@ export class MapView {
     this._tooltip.setAttribute('aria-hidden', 'true');
     this._tooltip.hidden = true;
 
-    this.legend = new MapLegend((id) => this.select(id));
+    this.legend = new MapLegend((id, e) => this.select(id, e.shiftKey));
 
     const hud = document.createElement('div');
     hud.className = 'map-hud';
@@ -123,6 +132,7 @@ export class MapView {
     hud.append(
       this._hudButton('+', 'Acercar', () => this._zoomBy(KEY_ZOOM_STEP)),
       this._hudButton('−', 'Alejar', () => this._zoomBy(1 / KEY_ZOOM_STEP)),
+      this._hudButton('Centrar', 'Centrar el mapa en el robot', () => this.centerOnRobot(), 'map-hud__button--wide'),
       this._hudButton('Ver todo', 'Ver todo el mapa', () => this.resetView(), 'map-hud__button--wide'),
     );
 
@@ -221,10 +231,17 @@ export class MapView {
     if (!this._robot) {
       this._robot = new RobotActor(this._three, styleId);
       this._robot.setPosition(0, 0);
+      this._runner = new RobotRunner(this._robot, this._graph, this._three, {
+        onArrive: (id) => {
+          this._scene?.pop(id);
+          this._opts.onArrive(id);
+        },
+      });
     } else if (this._builtStyle !== styleId) {
       this._robot.setStyle(styleId);
     }
     this._robot.setShadows(shadows);
+    this._runner?.setSkin(skin);
 
     this._scene.setSelected(this._selectedId);
     this._builtStyle = styleId;
@@ -306,6 +323,16 @@ export class MapView {
     this._applyCamera();
   }
 
+  /** Glides the view target towards the robot; stops once it is centered and idle. */
+  private _followRobot(p: THREE.Vector3, dt: number): void {
+    const k = this._reduceMotion ? 1 : 1 - Math.exp(-FOLLOW_DAMPING * dt);
+    this._target.x += (p.x - this._target.x) * k;
+    this._target.y += (p.z - this._target.y) * k;
+    this._applyCamera();
+    const settled = Math.hypot(p.x - this._target.x, p.z - this._target.y) < 0.05;
+    if (settled && !this._runner?.running) this._follow = false;
+  }
+
   private _updateZoom(dt: number): void {
     if (Math.abs(this._ppuGoal - this._ppu) < this._ppu * 0.0005) {
       if (this._ppu !== this._ppuGoal) this._ppu = this._ppuGoal;
@@ -369,6 +396,7 @@ export class MapView {
         this._applyCamera();
       }
       // Two-finger pan: the midpoint moves by half of each finger's movement
+      this._follow = false;
       this._panByPixels(dx / 2, dy / 2);
       return;
     }
@@ -380,7 +408,10 @@ export class MapView {
       this._canvas.classList.add('map-view__canvas--dragging');
       this._setHover(null);
     }
-    if (drag.moved) this._panByPixels(dx, dy);
+    if (drag.moved) {
+      this._follow = false;
+      this._panByPixels(dx, dy);
+    }
   }
 
   private _onPointerUp(e: PointerEvent, cancelled = false): void {
@@ -392,7 +423,7 @@ export class MapView {
       this._canvas.classList.remove('map-view__canvas--dragging');
       if (drag && !drag.moved && !cancelled && performance.now() - drag.downTime < 700) {
         const id = this._pick(e.clientX, e.clientY);
-        if (id) this.select(id);
+        if (id) this.select(id, e.shiftKey);
       }
     }
   }
@@ -469,9 +500,40 @@ export class MapView {
     this.legend.setActive(id);
   }
 
-  /** User chose a point (map click or legend). */
-  select(id: string): void {
-    this._opts.onSelect(id);
+  /** Centers the camera on the robot and keeps following it while it runs. */
+  centerOnRobot(): void {
+    this._follow = true;
+  }
+
+  /**
+   * User chose a point (map click or legend): the robot runs there along the roads and the
+   * card opens on arrival (immediately when `immediate`, e.g. Shift+click). Re-routes mid-run.
+   */
+  select(id: string, immediate = false): void {
+    const point = getMapPoint(id);
+    const placement = PLACEMENTS.find((p) => p.pointId === id);
+    const runner = this._runner;
+    const stop = placement ? this._graph.nodes.get(placement.stop) : undefined;
+    if (!point || !placement || !stop || !runner) return;
+
+    this.setSelected(id);
+    if (runner.isParkedAt(stop.x, stop.z)) {
+      // Already standing there: just open the card
+      this._scene?.pop(id);
+      this._opts.onArrive(id);
+      return;
+    }
+
+    this._opts.onDepart();
+    const started = runner.runTo(id, placement.stop, point.accent, { x: placement.x, z: placement.z });
+    if (!started) {
+      this._scene?.pop(id);
+      this._opts.onArrive(id);
+      return;
+    }
+    // A fresh run re-enables auto-follow (the user's own panning cancelled the previous one)
+    this._follow = true;
+    if (immediate) this._opts.onArrive(id);
   }
 
   // ------------------------------------------------------------------ frame
@@ -495,9 +557,9 @@ export class MapView {
 
     const robot = this._robot;
     if (robot) {
-      const bob = this._reduceMotion ? 0 : robot.idleBounce(this._time);
-      robot.tilt.position.y = bob;
+      this._runner?.update(dt, this._time, this._ppu, this._reduceMotion);
       this._lights?.update(robot.position, dt);
+      if (this._follow) this._followRobot(robot.position, dt);
     }
 
     this._scene.update({

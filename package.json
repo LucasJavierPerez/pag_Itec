@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:map": "node --experimental-strip-types scripts/check-roadgraph.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

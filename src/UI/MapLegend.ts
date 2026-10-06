@@ -11,7 +11,7 @@ export class MapLegend {
   private _body: HTMLDivElement;
   private _items = new Map<string, HTMLButtonElement>();
 
-  constructor(onSelect: (id: string) => void) {
+  constructor(onSelect: (id: string, e: MouseEvent) => void) {
     this.element = document.createElement('nav');
     this.element.className = 'map-legend';
     this.element.setAttribute('aria-label', 'Puntos de interés del mapa');
@@ -56,7 +56,7 @@ export class MapLegend {
         name.className = 'map-legend__name';
         name.textContent = point.name;
         button.append(swatch, name);
-        button.addEventListener('click', () => onSelect(point.id));
+        button.addEventListener('click', (e) => onSelect(point.id, e));
         li.appendChild(button);
         list.appendChild(li);
         this._items.set(point.id, button);

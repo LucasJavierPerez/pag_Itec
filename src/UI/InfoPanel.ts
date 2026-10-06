@@ -1,5 +1,19 @@
 import { careerData } from './CareerData.ts';
 
+/** Content of a card (classroom or map point). */
+export interface InfoEntry {
+  title: string;
+  subtitle: string;
+  tag: string;
+  description: string;
+  highlights: string[];
+  /** Hex color (#rrggbb). */
+  accent: string;
+  link?: { label: string; url: string };
+}
+
+const DEFAULT_LINK = { label: 'Más info en itecriocuarto.org.ar →', url: 'https://www.itecriocuarto.org.ar' };
+
 export class InfoPanel {
   private panel: HTMLDivElement;
   private isVisible = false;
@@ -9,6 +23,7 @@ export class InfoPanel {
 
   private onEnter: (e: Event) => void;
   private onLeave: (e: Event) => void;
+  private onKey: (e: KeyboardEvent) => void;
 
   constructor() {
     this.panel = this.createPanel();
@@ -26,13 +41,19 @@ export class InfoPanel {
       this.hide();
     };
 
+    this.onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && this.isVisible) this.hide();
+    };
+
     window.addEventListener('classroom-enter', this.onEnter);
     window.addEventListener('classroom-leave', this.onLeave);
+    window.addEventListener('keydown', this.onKey);
   }
 
   private createPanel(): HTMLDivElement {
     const panel = document.createElement('div');
     panel.id = 'info-panel';
+    panel.setAttribute('aria-live', 'polite');
     panel.innerHTML = `
       <div class="info-panel__card">
         <div class="info-panel__accent"></div>
@@ -57,10 +78,30 @@ export class InfoPanel {
     return panel;
   }
 
+  /** Classroom card (explorer): image, duration pill and the fixed default link. */
   show(careerName: string): void {
     const info = careerData[careerName];
     if (!info) return;
+    this.render({
+      title: info.title,
+      subtitle: info.subtitle,
+      tag: info.duration,
+      description: info.description,
+      highlights: info.highlights,
+      accent: info.color,
+      imageUrl: info.imageUrl,
+      link: DEFAULT_LINK,
+    });
+    this.source = 'classroom';
+  }
 
+  /** Card for a map point of interest: no image, optional per-entry link. */
+  showEntry(entry: InfoEntry): void {
+    this.render({ ...entry, imageUrl: '' });
+    this.source = 'entry';
+  }
+
+  private render(info: InfoEntry & { imageUrl: string }): void {
     const card = this.panel.querySelector('.info-panel__card') as HTMLDivElement;
     const accent = card.querySelector('.info-panel__accent') as HTMLDivElement;
     const title = card.querySelector('.info-panel__title') as HTMLHeadingElement;
@@ -70,9 +111,10 @@ export class InfoPanel {
     const highlights = card.querySelector('.info-panel__highlights') as HTMLDivElement;
     const imageContainer = card.querySelector('.info-panel__image-container') as HTMLDivElement;
     const image = card.querySelector('.info-panel__image') as HTMLImageElement;
+    const link = card.querySelector('.info-panel__link') as HTMLAnchorElement;
 
     // Set accent bar color
-    accent.style.background = info.color;
+    accent.style.background = info.accent;
 
     // Set image
     if (info.imageUrl) {
@@ -86,22 +128,29 @@ export class InfoPanel {
 
     title.textContent = info.title;
     subtitle.textContent = info.subtitle;
-    duration.textContent = info.duration;
+    duration.textContent = info.tag;
     description.textContent = info.description;
 
     highlights.innerHTML = '';
     for (const h of info.highlights) {
       const chip = document.createElement('span');
       chip.className = 'info-panel__chip';
-      chip.style.background = info.color + '33'; // color with low opacity
-      chip.style.borderColor = info.color + '80';
+      chip.style.background = info.accent + '33'; // color with low opacity
+      chip.style.borderColor = info.accent + '80';
       chip.textContent = h;
       highlights.appendChild(chip);
     }
 
+    if (info.link) {
+      link.href = info.link.url;
+      link.textContent = info.link.label;
+      link.hidden = false;
+    } else {
+      link.hidden = true;
+    }
+
     this.panel.classList.add('info-panel--visible');
     this.isVisible = true;
-    this.source = 'classroom';
   }
 
   /** Enables/disables reactions to classroom-enter/leave (off while the map tab is active). */
@@ -119,6 +168,7 @@ export class InfoPanel {
   dispose(): void {
     window.removeEventListener('classroom-enter', this.onEnter);
     window.removeEventListener('classroom-leave', this.onLeave);
+    window.removeEventListener('keydown', this.onKey);
     this.panel.remove();
   }
 }

@@ -13,6 +13,7 @@ import { StyleSwitcher } from './UI/StyleSwitcher.ts';
 import { QualityToggle } from './UI/QualityToggle.ts';
 import { ViewManager, getInitialView } from './UI/ViewManager.ts';
 import { MapView } from './Experience/Map/MapView.ts';
+import { getMapPoint } from './UI/MapData.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -67,7 +68,20 @@ new GoalCelebration();
 const mapView = new MapView({
   quality: experience.quality,
   getStyleId: () => experience.world.styleId,
-  onSelect: (id) => mapView.setSelected(id),
+  onArrive: (id) => {
+    const p = getMapPoint(id);
+    if (!p) return;
+    infoPanel.showEntry({
+      title: p.title,
+      subtitle: p.subtitle,
+      tag: p.tag,
+      description: p.description,
+      highlights: p.highlights,
+      accent: p.accent,
+      link: p.link,
+    });
+  },
+  onDepart: () => infoPanel.hide(),
 });
 
 // While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly

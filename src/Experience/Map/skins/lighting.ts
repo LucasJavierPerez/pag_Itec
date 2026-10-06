@@ -48,9 +48,11 @@ export function createSunLights(scene: THREE.Scene, o: SunOptions): MapLights {
   };
 }
 
+// Orthographic camera: world-space attenuation does not work, the runner sets `size` in pixels.
 const DUST_BASE: THREE.PointsMaterialParameters = {
-  size: 1.1,
-  sizeAttenuation: true,
+  size: 14,
+  sizeAttenuation: false,
+  vertexColors: true,
   transparent: true,
   depthWrite: false,
   opacity: 0.6,
