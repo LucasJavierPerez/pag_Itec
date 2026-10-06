@@ -2,6 +2,7 @@ import uiOriginal from '../styles/ui-original.css?inline';
 import uiLowpoly from '../styles/ui-lowpoly.css?inline';
 import uiVoxel from '../styles/ui-voxel.css?inline';
 import uiCinematic from '../styles/ui-cinematic.css?inline';
+import uiMobile from '../styles/ui-mobile.css?inline';
 import { DEFAULT_STYLE, isStyleId } from '../Experience/World/styles/index.ts';
 import type { StyleId } from '../Experience/World/styles/index.ts';
 
@@ -34,7 +35,8 @@ export const ThemeManager = {
       el.id = 'theme-css';
       document.head.appendChild(el);
     }
-    el.textContent = THEME_CSS[id];
+    // The shared mobile layer comes last so it can override any theme at the same specificity
+    el.textContent = `${THEME_CSS[id]}\n${uiMobile}`;
     document.documentElement.dataset.style = id;
     try {
       localStorage.setItem(STORAGE_KEY, id);

@@ -2,6 +2,7 @@ import type { Vehicle } from './Physics/Vehicle.ts';
 
 export class Controls {
   private keys = { forward: false, backward: false, left: false, right: false };
+  private touch = { forward: false, backward: false, left: false, right: false };
   private onKeyDown: (e: KeyboardEvent) => void;
   private onKeyUp: (e: KeyboardEvent) => void;
 
@@ -22,8 +23,18 @@ export class Controls {
     }
   }
 
+  /** Virtual joystick state, merged (OR) with the keyboard so desktop behavior is unchanged. */
+  setTouchState(state: { forward: boolean; backward: boolean; left: boolean; right: boolean }): void {
+    this.touch.forward = state.forward;
+    this.touch.backward = state.backward;
+    this.touch.left = state.left;
+    this.touch.right = state.right;
+  }
+
   update(vehicle: Vehicle): void {
-    vehicle.applyMovement(this.keys.forward, this.keys.backward, this.keys.left, this.keys.right);
+    const k = this.keys;
+    const t = this.touch;
+    vehicle.applyMovement(k.forward || t.forward, k.backward || t.backward, k.left || t.left, k.right || t.right);
   }
 
   dispose(): void {

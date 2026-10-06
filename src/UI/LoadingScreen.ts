@@ -1,3 +1,5 @@
+import { isCoarsePointer } from '../utils/device.ts';
+
 export class LoadingScreen {
   private overlay: HTMLDivElement;
 
@@ -12,7 +14,7 @@ export class LoadingScreen {
         <p class="loading-screen__motto">Educación para transformar</p>
         <p class="loading-screen__motto">EDUCACION PARA TRANSFORMAR</p>
         <div class="loading-screen__spinner"></div>
-        <p class="loading-screen__hint">Usa WASD o flechas para explorar</p>
+        <p class="loading-screen__hint">${isCoarsePointer() ? 'Arrastrá el joystick para explorar' : 'Usa WASD o flechas para explorar'}</p>
       </div>
     `;
     document.body.appendChild(this.overlay);

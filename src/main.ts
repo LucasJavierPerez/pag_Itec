@@ -14,6 +14,7 @@ import { QualityToggle } from './UI/QualityToggle.ts';
 import { ViewManager, getInitialView } from './UI/ViewManager.ts';
 import { MapView } from './Experience/Map/MapView.ts';
 import { getMapPoint } from './UI/MapData.ts';
+import { TouchControls } from './UI/TouchControls.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -51,6 +52,7 @@ experience.world.attachBall(ball);
 
 // Controls
 const controls = new Controls();
+const touchControls = new TouchControls((keys) => controls.setTouchState(keys));
 
 // Trigger zones
 const triggers = new Triggers(
@@ -166,10 +168,12 @@ new ViewManager(
     map: {
       activate: () => {
         mapActive = true;
+        touchControls.setViewActive(false);
         mapView.activate();
       },
       deactivate: () => {
         mapActive = false;
+        touchControls.setViewActive(true);
         mapView.deactivate();
       },
     },
