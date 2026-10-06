@@ -12,6 +12,7 @@ import { ThemeManager, getStoredStyle } from './UI/ThemeManager.ts';
 import { StyleSwitcher } from './UI/StyleSwitcher.ts';
 import { QualityToggle } from './UI/QualityToggle.ts';
 import { ViewManager, getInitialView } from './UI/ViewManager.ts';
+import { MapView } from './Experience/Map/MapView.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -62,6 +63,13 @@ const infoPanel = new InfoPanel();
 new GoalCelebration();
 
 // Runtime style switcher: UI theme + 3D re-skin (physics untouched)
+// Map tab: own canvas + render loop, created hidden and only active while its tab is shown
+const mapView = new MapView({
+  quality: experience.quality,
+  getStyleId: () => experience.world.styleId,
+  onSelect: (id) => mapView.setSelected(id),
+});
+
 // While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly
 let mapActive = false;
 new StyleSwitcher(initialStyle, {
@@ -144,9 +152,11 @@ new ViewManager(
     map: {
       activate: () => {
         mapActive = true;
+        mapView.activate();
       },
       deactivate: () => {
         mapActive = false;
+        mapView.deactivate();
       },
     },
     explorerCanvas: canvas,
