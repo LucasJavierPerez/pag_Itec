@@ -46,3 +46,8 @@ export function haptic(ms = 8): void {
     // ignore: some browsers throw without a user gesture
   }
 }
+
+/** Highest device pixel ratio worth rendering at: phones cap lower to save fill rate. */
+export function maxPixelRatio(): number {
+  return isCoarsePointer() ? 1.5 : 2;
+}

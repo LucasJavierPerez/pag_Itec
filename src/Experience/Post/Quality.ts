@@ -1,3 +1,5 @@
+import { isCoarsePointer } from '../../utils/device.ts';
+
 export type QualityLevel = 'high' | 'low';
 
 const STORAGE_KEY = 'itec-quality';
@@ -13,9 +15,10 @@ export function getStoredQuality(): QualityLevel {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored === 'high' || stored === 'low') return stored;
   } catch {
-    // localStorage unavailable: default to high
+    // localStorage unavailable: default by device
   }
-  return 'high';
+  // Never chosen: phones and tablets start light, desktop starts high
+  return isCoarsePointer() ? 'low' : 'high';
 }
 
 /** Holds the current quality level, persists it and notifies listeners via a `change` event. */

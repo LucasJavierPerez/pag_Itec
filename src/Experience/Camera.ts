@@ -7,6 +7,13 @@ const LOOK_AHEAD = 2.5;
 const LOOK_HEIGHT = 1;
 const MAX_DT = 0.1;
 
+// Aspect adaptation: in tall viewports widen the FOV and pull the camera back (desktop aspect >= 1.15 unchanged)
+const ASPECT_REF = 1.15;
+const ASPECT_MAX_FACTOR = 1.6;
+const ASPECT_FOV_CAP = 70;
+const ASPECT_PULLBACK = 0.6; // share of the FOV factor applied to the follow distance
+const ASPECT_DAMPING = 3;
+
 const BASE_FOV = 45;
 const BASE_OFFSET_Y = 8;
 const BASE_OFFSET_Z = 10;
@@ -58,6 +65,10 @@ export class Camera {
   private _fovExtra = 0;
   private _roll = 0;
 
+  // Aspect adaptation (1 = landscape/desktop framing)
+  private _aspectTarget = 1;
+  private _aspectFactor = 1;
+
   constructor(sizes: Sizes, scene: THREE.Scene) {
     this.instance = new THREE.PerspectiveCamera(
       BASE_FOV,
@@ -65,6 +76,8 @@ export class Camera {
       0.5,
       200
     );
+    this._aspectTarget = Camera.aspectFactor(sizes.width / sizes.height);
+    this._aspectFactor = this._aspectTarget;
     this._offset = new THREE.Vector3(0, BASE_OFFSET_Y, BASE_OFFSET_Z);
     this._lookTarget = new THREE.Vector3();
     this._desired = new THREE.Vector3();
@@ -81,9 +94,18 @@ export class Camera {
     return this._introWeight;
   }
 
+  /** FOV multiplier for a viewport aspect: 1 from landscape up, growing towards portrait. */
+  static aspectFactor(aspect: number): number {
+    if (!(aspect > 0)) return 1;
+    return Math.min(Math.max(ASPECT_REF / aspect, 1), ASPECT_MAX_FACTOR);
+  }
+
+  /** The projection follows the canvas at once; the framing eases to its new target in `update`. */
   resize(sizes: Sizes): void {
-    this.instance.aspect = sizes.width / sizes.height;
+    const aspect = sizes.width / sizes.height;
+    this.instance.aspect = aspect;
     this.instance.updateProjectionMatrix();
+    this._aspectTarget = Camera.aspectFactor(aspect);
   }
 
   /** Holds the wide intro framing (behind the loading screen) until `playIntro` is called. */
@@ -129,6 +151,11 @@ export class Camera {
     if (this._forward.lengthSq() > 1e-6) this._forward.normalize();
     else this._forward.set(0, 0, -1);
 
+    this._aspectFactor += (this._aspectTarget - this._aspectFactor) * (1 - Math.exp(-ASPECT_DAMPING * dt));
+    if (Math.abs(this._aspectTarget - this._aspectFactor) < 1e-4) this._aspectFactor = this._aspectTarget;
+    const pull = 1 + (this._aspectFactor - 1) * ASPECT_PULLBACK;
+    this._offset.set(0, BASE_OFFSET_Y * pull, BASE_OFFSET_Z * pull);
+
     this._updateMotion(targetPosition, dt);
     this._updateIntro(dt);
 
@@ -164,7 +191,8 @@ export class Camera {
     // Roll is applied after lookAt (which rebuilds the orientation every frame, so it never accumulates)
     if (Math.abs(this._roll) > 1e-5) this.instance.rotateZ(this._roll);
 
-    const fov = BASE_FOV + INTRO_FOV_EXTRA * w + this._fovExtra;
+    const baseFov = Math.min(BASE_FOV * this._aspectFactor, Math.max(ASPECT_FOV_CAP, BASE_FOV));
+    const fov = baseFov + INTRO_FOV_EXTRA * w + this._fovExtra;
     if (Math.abs(fov - this.instance.fov) > 1e-3) {
       this.instance.fov = fov;
       this.instance.updateProjectionMatrix();

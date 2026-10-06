@@ -154,6 +154,27 @@ function animate(): void {
 
 animate();
 
+// Hidden tab: stop whichever loop is running; resume without a delta spike when visible again
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (mapActive) {
+      mapView.pause();
+    } else {
+      cancelAnimationFrame(rafId);
+      experience.setPaused(true);
+    }
+    return;
+  }
+  if (mapActive) {
+    mapView.resume();
+  } else {
+    lastTime = performance.now();
+    experience.setPaused(false);
+    cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(animate);
+  }
+});
+
 // Explorer <-> map switching: exactly one render loop runs at any time
 new ViewManager(
   {

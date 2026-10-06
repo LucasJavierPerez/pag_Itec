@@ -3,7 +3,7 @@ import type { Sizes } from './Utils/Sizes.ts';
 
 export class Renderer {
   instance: THREE.WebGLRenderer;
-  /** Effective pixel ratio: capped at 2 on high quality, 1 on low. */
+  /** Effective pixel ratio: capped by Sizes (2 desktop, 1.5 coarse) on high quality, 1 on low. */
   pixelRatio: number;
 
   private _low = false;
@@ -15,7 +15,7 @@ export class Renderer {
       alpha: false,
     });
 
-    this.pixelRatio = Math.min(sizes.pixelRatio, 2);
+    this.pixelRatio = sizes.pixelRatio;
     this.instance.setSize(sizes.width, sizes.height);
     this.instance.setPixelRatio(this.pixelRatio);
     this.instance.outputColorSpace = THREE.SRGBColorSpace;
@@ -25,7 +25,7 @@ export class Renderer {
   }
 
   resize(sizes: Sizes): void {
-    this.pixelRatio = this._low ? 1 : Math.min(sizes.pixelRatio, 2);
+    this.pixelRatio = this._low ? 1 : sizes.pixelRatio;
     this.instance.setPixelRatio(this.pixelRatio);
     this.instance.setSize(sizes.width, sizes.height);
   }

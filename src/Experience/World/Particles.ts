@@ -1,12 +1,13 @@
 import * as THREE from 'three';
+import { isCoarsePointer } from '../../utils/device.ts';
 
 // Dust volume around the Mecatrónica classroom and its entrance
-const DUST_COUNT = 150;
+const DUST_COUNT_BASE = 150;
 const DUST_MIN = new THREE.Vector3(-17, 0.2, -5);
 const DUST_MAX = new THREE.Vector3(-5, 3.5, 5);
 
 // Welding sparks emitter inside Mecatrónica (back-left workbench area)
-const SPARK_COUNT = 60;
+const SPARK_COUNT_BASE = 60;
 const SPARK_ORIGIN = new THREE.Vector3(-14, 1.0, -2);
 const SPARK_GRAVITY = -9;
 const SPARK_BURST_MIN = 10;
@@ -15,7 +16,7 @@ const BURST_DELAY_MIN = 0.6;
 const BURST_DELAY_MAX = 1.8;
 
 // Ground-dust trail left behind the robot
-const TRAIL_COUNT = 80;
+const TRAIL_COUNT_BASE = 80;
 const TRAIL_LIFE = 0.7;
 const TRAIL_MIN_SPEED = 1.2;
 const TRAIL_MAX_SPEED = 5;
@@ -69,8 +70,17 @@ export class Particles {
 
   private _time = 0;
 
+  // Pool sizes: halved on coarse pointers (phones/tablets)
+  private _dustCount: number;
+  private _sparkCount: number;
+  private _trailCount: number;
+
   constructor(scene: THREE.Scene) {
     this._scene = scene;
+    const scale = isCoarsePointer() ? 0.5 : 1;
+    this._dustCount = Math.round(DUST_COUNT_BASE * scale);
+    this._sparkCount = Math.round(SPARK_COUNT_BASE * scale);
+    this._trailCount = Math.round(TRAIL_COUNT_BASE * scale);
     this._texture = createSpriteTexture();
 
     const spanX = DUST_MAX.x - DUST_MIN.x;
@@ -78,10 +88,10 @@ export class Particles {
     const spanZ = DUST_MAX.z - DUST_MIN.z;
 
     // --- Dust ---
-    this._dustBase = new Float32Array(DUST_COUNT * 3);
-    this._dustPhase = new Float32Array(DUST_COUNT);
-    this._dustSpeed = new Float32Array(DUST_COUNT);
-    for (let i = 0; i < DUST_COUNT; i++) {
+    this._dustBase = new Float32Array(this._dustCount * 3);
+    this._dustPhase = new Float32Array(this._dustCount);
+    this._dustSpeed = new Float32Array(this._dustCount);
+    for (let i = 0; i < this._dustCount; i++) {
       this._dustBase[i * 3] = DUST_MIN.x + Math.random() * spanX;
       this._dustBase[i * 3 + 1] = DUST_MIN.y + Math.random() * spanY;
       this._dustBase[i * 3 + 2] = DUST_MIN.z + Math.random() * spanZ;
@@ -105,13 +115,13 @@ export class Particles {
     this._dust.renderOrder = 2;
 
     // --- Sparks ---
-    this._sparkVel = new Float32Array(SPARK_COUNT * 3);
-    this._sparkLife = new Float32Array(SPARK_COUNT); // 0 = dead
-    this._sparkMaxLife = new Float32Array(SPARK_COUNT);
+    this._sparkVel = new Float32Array(this._sparkCount * 3);
+    this._sparkLife = new Float32Array(this._sparkCount); // 0 = dead
+    this._sparkMaxLife = new Float32Array(this._sparkCount);
     this._nextBurst = 0.5;
     const sparkGeo = new THREE.BufferGeometry();
-    sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SPARK_COUNT * 3), 3));
-    sparkGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(SPARK_COUNT * 3), 3));
+    sparkGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this._sparkCount * 3), 3));
+    sparkGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this._sparkCount * 3), 3));
     const sparkMat = new THREE.PointsMaterial({
       size: 0.16,
       map: this._texture,
@@ -126,16 +136,16 @@ export class Particles {
     this._sparks.renderOrder = 3;
     // Start with every spark parked far away and invisible (black = no additive contribution)
     const pos = sparkGeo.getAttribute('position') as THREE.BufferAttribute;
-    for (let i = 0; i < SPARK_COUNT; i++) pos.setXYZ(i, SPARK_ORIGIN.x, -100, SPARK_ORIGIN.z);
+    for (let i = 0; i < this._sparkCount; i++) pos.setXYZ(i, SPARK_ORIGIN.x, -100, SPARK_ORIGIN.z);
 
     // --- Trail (fixed pool, ring-buffer reuse) ---
-    this._trailVel = new Float32Array(TRAIL_COUNT * 3);
-    this._trailLife = new Float32Array(TRAIL_COUNT);
+    this._trailVel = new Float32Array(this._trailCount * 3);
+    this._trailLife = new Float32Array(this._trailCount);
     const trailGeo = new THREE.BufferGeometry();
-    const trailPos = new THREE.BufferAttribute(new Float32Array(TRAIL_COUNT * 3), 3);
-    for (let i = 0; i < TRAIL_COUNT; i++) trailPos.setXYZ(i, 0, -100, 0);
+    const trailPos = new THREE.BufferAttribute(new Float32Array(this._trailCount * 3), 3);
+    for (let i = 0; i < this._trailCount; i++) trailPos.setXYZ(i, 0, -100, 0);
     trailGeo.setAttribute('position', trailPos);
-    trailGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL_COUNT * 3), 3));
+    trailGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(this._trailCount * 3), 3));
     const trailMat = new THREE.PointsMaterial({
       size: 0.5,
       map: this._texture,
@@ -187,7 +197,7 @@ export class Particles {
     while (this._trailAccum >= 1) {
       this._trailAccum -= 1;
       const i = this._trailCursor;
-      this._trailCursor = (i + 1) % TRAIL_COUNT;
+      this._trailCursor = (i + 1) % this._trailCount;
       const i3 = i * 3;
       const back = TRAIL_BEHIND + Math.random() * 0.4;
       const side = (Math.random() - 0.5) * 0.7;
@@ -206,7 +216,7 @@ export class Particles {
       SPARK_BURST_MIN + Math.floor(Math.random() * (SPARK_BURST_MAX - SPARK_BURST_MIN + 1));
     const p = (this._sparks.geometry.getAttribute('position') as THREE.BufferAttribute).array as Float32Array;
     let emitted = 0;
-    for (let i = 0; i < SPARK_COUNT && emitted < count; i++) {
+    for (let i = 0; i < this._sparkCount && emitted < count; i++) {
       if (this._sparkLife[i] > 0) continue;
       const maxLife = 0.5 + Math.random() * 0.6;
       this._sparkLife[i] = maxLife;
@@ -234,7 +244,7 @@ export class Particles {
     const spanY = DUST_MAX.y - DUST_MIN.y;
     const dustPos = this._dust.geometry.getAttribute('position') as THREE.BufferAttribute;
     const dp = dustPos.array as Float32Array;
-    for (let i = 0; i < DUST_COUNT; i++) {
+    for (let i = 0; i < this._dustCount; i++) {
       const i3 = i * 3;
       let by = this._dustBase[i3 + 1] + this._dustSpeed[i] * dt;
       if (by > DUST_MAX.y) by -= spanY;
@@ -257,7 +267,7 @@ export class Particles {
     const sparkCol = this._sparks.geometry.getAttribute('color') as THREE.BufferAttribute;
     const sp = sparkPos.array as Float32Array;
     const sc = sparkCol.array as Float32Array;
-    for (let i = 0; i < SPARK_COUNT; i++) {
+    for (let i = 0; i < this._sparkCount; i++) {
       const i3 = i * 3;
       const life = this._sparkLife[i];
       if (life <= 0) {
@@ -304,7 +314,7 @@ export class Particles {
     const tp = posAttr.array as Float32Array;
     const tc = colAttr.array as Float32Array;
     let any = false;
-    for (let i = 0; i < TRAIL_COUNT; i++) {
+    for (let i = 0; i < this._trailCount; i++) {
       const i3 = i * 3;
       const life = this._trailLife[i];
       if (life <= 0) {

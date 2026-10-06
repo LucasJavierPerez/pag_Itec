@@ -7,11 +7,14 @@ import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { FinalLookShader } from './FinalLookShader.ts';
 import { STYLES } from '../World/styles/index.ts';
+import { isCoarsePointer } from '../../utils/device.ts';
 import type { PostSettings, StyleId } from '../World/styles/types.ts';
 
 /** Exponential smoothing rate: ~95% of the way after 0.6 s. */
 const SETTINGS_RATE = 5;
-const MSAA_SAMPLES = 4;
+/** Multisample count of the composer target: 4 on desktop, 2 on coarse pointers. */
+const MSAA_SAMPLES_DESKTOP = 4;
+const MSAA_SAMPLES_TOUCH = 2;
 /** Vignette values while the cinematic intro is at full weight. */
 const INTRO_VIGNETTE_OFFSET = 0.15;
 const INTRO_VIGNETTE_DARKNESS = 0.92;
@@ -143,7 +146,7 @@ export class PostProcessing {
     const target = new THREE.WebGLRenderTarget(
       this._width * this._pixelRatio,
       this._height * this._pixelRatio,
-      { type: THREE.HalfFloatType, samples: MSAA_SAMPLES },
+      { type: THREE.HalfFloatType, samples: isCoarsePointer() ? MSAA_SAMPLES_TOUCH : MSAA_SAMPLES_DESKTOP },
     );
     target.texture.name = 'Post.rt';
     const composer = new EffectComposer(this._renderer, target);

@@ -8,6 +8,7 @@ import { STYLES } from './World/styles/index.ts';
 import type { StyleId } from './World/styles/types.ts';
 import { PostProcessing } from './Post/PostProcessing.ts';
 import { StyleTransition } from './Post/StyleTransition.ts';
+import { isCoarsePointer } from '../utils/device.ts';
 import { FpsMonitor, QualityController } from './Post/Quality.ts';
 
 const INTRO_SECONDS = 3.2;
@@ -104,13 +105,13 @@ export class Experience {
     this.time.resume();
   }
 
-  /** High: composer + native pixel ratio + trail. Low: direct render, pixel ratio 1, no trail. */
+  /** High: composer + native pixel ratio + trail (no trail on coarse pointers). Low: direct render, pixel ratio 1, no trail. */
   private _applyQuality(): void {
     const high = this.quality.level === 'high';
     this.renderer.setLowQuality(!high, this.sizes);
     this.post.resize(this.sizes.width, this.sizes.height, this.renderer.pixelRatio);
     this.post.setEnabled(high);
-    this.world.setTrailEnabled(high);
+    this.world.setTrailEnabled(high && !isCoarsePointer());
     this.world.setQuality(this.quality.level);
     this._fps.reset();
   }

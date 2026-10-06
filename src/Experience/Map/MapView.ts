@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { maxPixelRatio } from '../../utils/device.ts';
+import { onViewportResize } from '../../utils/viewport.ts';
 import { STYLES } from '../World/styles/index.ts';
 import type { StyleId } from '../World/styles/types.ts';
 import type { QualityController } from '../Post/Quality.ts';
@@ -95,6 +97,7 @@ export class MapView {
   private _hitB = new THREE.Vector3();
 
   private _onResize = (): void => this._resize();
+  private _unsubResize: (() => void) | null = null;
   private _onKey = (e: KeyboardEvent): void => this._handleKey(e);
   private _onStyle = (): void => {
     this._dirty = true;
@@ -180,10 +183,24 @@ export class MapView {
     } else {
       this._resize();
     }
-    window.addEventListener('resize', this._onResize);
+    this._unsubResize = onViewportResize(this._onResize);
     window.addEventListener('keydown', this._onKey);
 
     if (this._dirty || this._builtStyle !== this._opts.getStyleId()) this._rebuild();
+    this._lastTime = performance.now();
+    this._rafId = requestAnimationFrame(this._frame);
+  }
+
+  /** Stops the render loop while the page is hidden (view stays active). */
+  pause(): void {
+    if (!this._active) return;
+    cancelAnimationFrame(this._rafId);
+  }
+
+  /** Restarts the loop after `pause`; the hidden time never shows up as a delta. */
+  resume(): void {
+    if (!this._active) return;
+    cancelAnimationFrame(this._rafId);
     this._lastTime = performance.now();
     this._rafId = requestAnimationFrame(this._frame);
   }
@@ -192,7 +209,8 @@ export class MapView {
     if (!this._active) return;
     this._active = false;
     cancelAnimationFrame(this._rafId);
-    window.removeEventListener('resize', this._onResize);
+    this._unsubResize?.();
+    this._unsubResize = null;
     window.removeEventListener('keydown', this._onKey);
     this._pointers.clear();
     this._drag = null;
@@ -221,7 +239,7 @@ export class MapView {
     renderer.shadowMap.enabled = shadows;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.needsUpdate = true;
-    renderer.setPixelRatio(quality === 'high' ? Math.min(window.devicePixelRatio, 2) : 1);
+    renderer.setPixelRatio(quality === 'high' ? Math.min(window.devicePixelRatio, maxPixelRatio()) : 1);
     renderer.setSize(this._w, this._h, false);
 
     this._scene = new MapScene(skin, quality);
