@@ -28,11 +28,11 @@ export class Controls {
     this.touch = state && state.active ? state : null;
   }
 
-  update(vehicle: Vehicle): void {
+  update(vehicle: Vehicle, dt = 1 / 60): void {
     const k = this.keys;
     const keyboard = k.forward || k.backward || k.left || k.right;
     if (this.touch && !keyboard) {
-      vehicle.applyDirectional(this.touch.dirX, this.touch.dirZ, this.touch.strength);
+      vehicle.applyDirectional(this.touch.dirX, this.touch.dirZ, this.touch.strength, dt);
       return;
     }
     vehicle.applyMovement(k.forward, k.backward, k.left, k.right);

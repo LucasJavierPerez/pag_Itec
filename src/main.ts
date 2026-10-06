@@ -127,7 +127,7 @@ function animate(): void {
   const clampedDelta = Math.min(delta, 0.1);
 
   // Update controls
-  controls.update(vehicle);
+  controls.update(vehicle, clampedDelta);
 
   // Step physics
   physicsWorld.step(clampedDelta);

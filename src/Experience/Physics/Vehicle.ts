@@ -51,9 +51,9 @@ export class Vehicle {
    * Screen-relative drive: turns toward the world-space direction (dirX, dirZ) and moves
    * along the current facing, slower while it is still misaligned.
    */
-  applyDirectional(dirX: number, dirZ: number, strength: number): void {
+  applyDirectional(dirX: number, dirZ: number, strength: number, dt = 1 / 60): void {
     const target = Math.atan2(dirX, dirZ);
-    this.yaw = stepYaw(this.yaw, target, DIRECTIONAL_TURN_RATE, 1 / 60);
+    this.yaw = stepYaw(this.yaw, target, DIRECTIONAL_TURN_RATE, dt);
 
     this.chassisBody.quaternion.setFromEuler(0, this.yaw, 0);
     this.chassisBody.angularVelocity.set(0, 0, 0);

@@ -97,6 +97,20 @@ for (let i = 0; i < 60; i++) {
 }
 check(!longWay, 'seam crossing never takes the long way');
 
+// Turn time must not depend on the frame rate (real dt is passed per frame).
+const turnTime = (hz) => {
+  let y = Math.PI;
+  let t = 0;
+  while (Math.abs(shortestAngle(y, 0)) > 1e-6 && t < 5) {
+    y = stepYaw(y, 0, 9, 1 / hz);
+    t += 1 / hz;
+  }
+  return t;
+};
+for (const hz of [30, 60, 120]) {
+  check(Math.abs(turnTime(hz) - Math.PI / 9) <= 1 / hz + 1e-9, `180 degree turn takes about pi/9 s at ${hz} Hz`);
+}
+
 if (failures > 0) {
   console.error(`\n${failures}/${checks} joystick checks failed`);
   process.exit(1);
