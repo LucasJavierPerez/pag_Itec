@@ -11,6 +11,7 @@ import { LoadingScreen } from './UI/LoadingScreen.ts';
 import { ThemeManager, getStoredStyle } from './UI/ThemeManager.ts';
 import { StyleSwitcher } from './UI/StyleSwitcher.ts';
 import { QualityToggle } from './UI/QualityToggle.ts';
+import { ViewManager, getInitialView } from './UI/ViewManager.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -57,11 +58,16 @@ const triggers = new Triggers(
 );
 
 // Info panel (auto-listens to classroom-enter/leave events)
-new InfoPanel();
+const infoPanel = new InfoPanel();
 new GoalCelebration();
 
 // Runtime style switcher: UI theme + 3D re-skin (physics untouched)
-new StyleSwitcher(initialStyle, experience.styleTransition);
+// While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly
+let mapActive = false;
+new StyleSwitcher(initialStyle, {
+  request: (id) =>
+    mapActive ? experience.styleTransition.applyImmediately(id) : experience.styleTransition.request(id),
+});
 new QualityToggle(experience.quality);
 
 // Vehicle reset handler
@@ -80,10 +86,11 @@ const vehiclePosition = new THREE.Vector3();
 const vehicleQuaternion = new THREE.Quaternion();
 
 let lastTime = performance.now();
+let rafId = 0;
 
 // Animation loop
 function animate(): void {
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(animate);
 
   const now = performance.now();
   const delta = (now - lastTime) / 1000;
@@ -119,3 +126,31 @@ function animate(): void {
 }
 
 animate();
+
+// Explorer <-> map switching: exactly one render loop runs at any time
+new ViewManager(
+  {
+    explorer: {
+      pause: () => {
+        cancelAnimationFrame(rafId);
+        experience.setPaused(true);
+      },
+      resume: () => {
+        lastTime = performance.now();
+        experience.setPaused(false);
+        rafId = requestAnimationFrame(animate);
+      },
+    },
+    map: {
+      activate: () => {
+        mapActive = true;
+      },
+      deactivate: () => {
+        mapActive = false;
+      },
+    },
+    explorerCanvas: canvas,
+    infoPanel,
+  },
+  getInitialView(),
+);

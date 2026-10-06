@@ -1,13 +1,12 @@
 import { STYLES, STYLE_IDS } from '../Experience/World/styles/index.ts';
 import type { StyleId } from '../Experience/World/styles/index.ts';
-import type { StyleTransition } from '../Experience/Post/StyleTransition.ts';
 
 /** Always-visible top-left widget to pick the visual style at runtime. */
 export class StyleSwitcher {
   private root: HTMLDivElement;
   private buttons = new Map<StyleId, HTMLButtonElement>();
 
-  constructor(initial: StyleId, transition: StyleTransition) {
+  constructor(initial: StyleId, transition: { request(id: StyleId): void }) {
     this.root = document.createElement('div');
     this.root.className = 'style-switcher';
     this.root.setAttribute('role', 'group');

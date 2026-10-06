@@ -51,6 +51,16 @@ export class StyleTransition {
     this._start(id);
   }
 
+  /** Applies a style right away with no wipe (used while the explorer loop is paused). */
+  applyImmediately(id: StyleId): void {
+    if (this._phase !== 'idle') {
+      this._queued = null;
+      this._phase = 'idle';
+      this._post.setTransition(0, false);
+    }
+    if (id !== this._current) this._swap(id);
+  }
+
   private _start(id: StyleId): void {
     this._target = id;
     this._phase = 'covering';

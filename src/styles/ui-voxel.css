@@ -563,3 +563,115 @@ body {
     font-size: 0.45rem;
   }
 }
+
+/* === Shared UI tokens (tabs, map HUD) === */
+:root {
+  --ui-surface: var(--itec-blue-dark);
+  --ui-border: 0;
+  --ui-radius: 0;
+  --ui-btn-radius: 0;
+  --ui-shadow: var(--pixel-frame);
+  --ui-clip: none;
+  --ui-btn-clip: none;
+  --ui-btn-bg: var(--itec-blue-light);
+  --ui-btn-border: 0;
+  --ui-btn-hover: #3498db;
+  --ui-btn-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, 0.35), inset 0 calc(var(--px) * -1) 0 0 rgba(0, 0, 0, 0.35);
+  --ui-active-bg: #f5b041;
+  --ui-active-fg: var(--ink);
+  --ui-active-border: transparent;
+  --ui-active-shadow: inset 0 var(--px) 0 0 rgba(255, 255, 255, 0.35), inset 0 calc(var(--px) * -1) 0 0 rgba(0, 0, 0, 0.35);
+  --ui-font: var(--font-pixel);
+  --ui-font-size: 0.55rem;
+  --ui-font-weight: 400;
+  --ui-top: 20px;
+  --ui-focus: #f5b041;
+}
+
+/* === View tabs (Explorador 3D / Mapa) === */
+.view-tabs {
+  position: fixed;
+  top: var(--ui-top);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 46;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: var(--ui-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: var(--ui-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  clip-path: var(--ui-clip);
+  font-family: var(--ui-font);
+  font-size: var(--ui-font-size);
+  user-select: none;
+}
+.view-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: var(--ui-font-weight);
+  color: var(--text-primary);
+  background: var(--ui-btn-bg);
+  border: var(--ui-btn-border);
+  border-radius: var(--ui-btn-radius);
+  box-shadow: var(--ui-btn-shadow);
+  clip-path: var(--ui-btn-clip);
+  transition: background 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.view-tabs__tab:hover {
+  background: var(--ui-btn-hover);
+}
+.view-tabs__tab:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+.view-tabs__tab--active,
+.view-tabs__tab--active:hover {
+  background: var(--ui-active-bg);
+  color: var(--ui-active-fg);
+  border-color: var(--ui-active-border);
+  box-shadow: var(--ui-active-shadow);
+}
+.view-tabs__icon {
+  display: inline-flex;
+}
+body[data-view='map'] #controls-hint {
+  display: none;
+}
+/* Below this width the style switcher (top-left) would collide with the centered tabs */
+@media (max-width: 1100px) {
+  .view-tabs {
+    top: calc(var(--ui-top) + 54px);
+  }
+}
+@media (max-width: 480px) {
+  .view-tabs {
+    top: calc(var(--ui-top) + 62px);
+    padding: 4px;
+    gap: 4px;
+  }
+  .view-tabs__tab {
+    padding: 7px 10px;
+  }
+  .view-tabs__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .view-tabs__tab {
+    transition: none;
+  }
+}

@@ -3,6 +3,9 @@ import { careerData } from './CareerData.ts';
 export class InfoPanel {
   private panel: HTMLDivElement;
   private isVisible = false;
+  /** False while the explorer is paused (map tab): classroom events must not touch the card. */
+  private classroomEvents = true;
+  private source: 'classroom' | 'entry' | null = null;
 
   private onEnter: (e: Event) => void;
   private onLeave: (e: Event) => void;
@@ -12,11 +15,14 @@ export class InfoPanel {
     document.body.appendChild(this.panel);
 
     this.onEnter = (e: Event) => {
+      if (!this.classroomEvents) return;
       const detail = (e as CustomEvent<{ name: string }>).detail;
       this.show(detail.name);
     };
 
     this.onLeave = () => {
+      // A card opened from the map is never closed by the explorer's zone events
+      if (!this.classroomEvents || this.source !== 'classroom') return;
       this.hide();
     };
 
@@ -95,12 +101,19 @@ export class InfoPanel {
 
     this.panel.classList.add('info-panel--visible');
     this.isVisible = true;
+    this.source = 'classroom';
+  }
+
+  /** Enables/disables reactions to classroom-enter/leave (off while the map tab is active). */
+  setClassroomEvents(enabled: boolean): void {
+    this.classroomEvents = enabled;
   }
 
   hide(): void {
     if (!this.isVisible) return;
     this.panel.classList.remove('info-panel--visible');
     this.isVisible = false;
+    this.source = null;
   }
 
   dispose(): void {

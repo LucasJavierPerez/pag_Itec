@@ -96,6 +96,13 @@ export class World {
     this._signature = this._createSignature(style);
   }
 
+  /** Drops the time spent paused so the next update() does not see one huge delta. */
+  resetClock(): void {
+    this._lastUpdate = performance.now() / 1000;
+    this._hasPrev = false;
+    this._speed = 0;
+  }
+
   /** Forwards the quality level to the active signature effects. */
   setQuality(quality: SignatureQuality): void {
     this._quality = quality;

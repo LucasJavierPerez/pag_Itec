@@ -93,6 +93,17 @@ export class Experience {
     this.world.enterSignature();
   }
 
+  /** Pauses/resumes the whole explorer render loop (used while the map tab is shown). */
+  setPaused(paused: boolean): void {
+    if (paused) {
+      this.time.pause();
+      return;
+    }
+    this.world.resetClock();
+    this._fps.reset();
+    this.time.resume();
+  }
+
   /** High: composer + native pixel ratio + trail. Low: direct render, pixel ratio 1, no trail. */
   private _applyQuality(): void {
     const high = this.quality.level === 'high';
