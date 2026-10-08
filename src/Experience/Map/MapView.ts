@@ -25,6 +25,8 @@ import { getSharedTimeMs, stepSharedClock } from './sharedTime.ts';
 import { MAP_ROBOT_SCALE } from './RobotActor.ts';
 import { RemotePlayers } from './RemotePlayers.ts';
 import { NameTag, NameTagLayer, SELF_ACCENT, TAG_PRIORITY, tagHeight } from './nameTag.ts';
+import { ChatBubbles } from './ChatBubbles.ts';
+import type { ChatStore } from '../../UI/chat/ChatStore.ts';
 import type { MapOnline } from './net/MapOnline.ts';
 import { PlayerMotion } from './playerMotion.ts';
 import { PLAYER_RADIUS, SECRET_WALK, createWalkable } from './walkable.ts';
@@ -93,6 +95,8 @@ export interface MapViewOptions {
   onSecret: (entry: InfoEntry) => void;
   /** Multiplayer glue: nickname, connection and position reports. */
   online: MapOnline;
+  /** Chat messages, shown as speech bubbles above the characters. */
+  chat: ChatStore;
 }
 
 /**
@@ -117,6 +121,7 @@ export class MapView {
   private _crowd: BotCrowd | null = null;
   private _remote: RemotePlayers | null = null;
   private _tagLayer = new NameTagLayer();
+  private _bubbles = new ChatBubbles();
   private _selfTag: NameTag | null = null;
   private _botFacts = buildBotFacts(MAP_POINTS);
   private _lastFact = -1;
@@ -178,6 +183,11 @@ export class MapView {
   private _onKey = (e: KeyboardEvent): void => this._handleKey(e);
   private _onKeyUp = (e: KeyboardEvent): void => this._setMoveKey(e.code, false);
   private _onBlur = (): void => this._releaseInput();
+  /** Typing in a text field (the chat) must never leave a movement key stuck down. */
+  private _onFocusIn = (e: FocusEvent): void => {
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) this._releaseInput();
+  };
   private _onSkin = (e: Event): void => {
     const detail = (e as CustomEvent<{ id: string; character?: CharacterId }>).detail;
     this._robot?.setSkin(getRobotSkin(detail?.id));
@@ -209,6 +219,23 @@ export class MapView {
     this._tooltip.className = 'map-tooltip';
     this._tooltip.setAttribute('aria-hidden', 'true');
     this._tooltip.hidden = true;
+
+    this._bubbles.setHeadResolver((id, self, out) => {
+      if (self) {
+        const robot = this._robot;
+        if (!robot) return false;
+        out.set(robot.position.x, tagHeight(MAP_ROBOT_SCALE) + robot.tilt.position.y, robot.position.z);
+        return true;
+      }
+      return this._remote?.headPosition(id, out) ?? false;
+    });
+    opts.chat.onChat((m) => {
+      if (this._active) this._bubbles.show(m.id ?? '', m.self, m.text, performance.now());
+    });
+    opts.chat.subscribe(() => {
+      // Muting someone also removes the bubble they have on screen right now
+      for (const id of opts.chat.mutedIds) this._bubbles.remove(id);
+    });
 
     this.legend = new MapLegend((id, e) => this.select(id, e.shiftKey));
 
@@ -297,6 +324,7 @@ export class MapView {
     window.addEventListener('keydown', this._onKey);
     window.addEventListener('keyup', this._onKeyUp);
     window.addEventListener('blur', this._onBlur);
+    window.addEventListener('focusin', this._onFocusIn);
 
     if (this._dirty || this._builtStyle !== this._opts.getStyleId()) this._rebuild();
     this._lastTime = performance.now();
@@ -327,6 +355,8 @@ export class MapView {
     window.removeEventListener('keydown', this._onKey);
     window.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('blur', this._onBlur);
+    window.removeEventListener('focusin', this._onFocusIn);
+    this._bubbles.clear();
     this.skinPicker.close();
     this.botBubble.hide();
     this._opts.online.mapHidden();
@@ -406,6 +436,7 @@ export class MapView {
       this._selfTag = new NameTag({ text: this._opts.online.nick || ' ', accent: SELF_ACCENT, self: true }, quality === 'high');
       this._three.add(this._selfTag.sprite);
     }
+    this._bubbles.attach(this._three);
 
     this._secret?.dispose();
     this._secret = new SecretSpot(skin, quality, this._adaFound);
@@ -1010,6 +1041,7 @@ export class MapView {
     }
 
     this._tagLayer.resolve(this._camera, this._w, this._h, this._ppu);
+    this._bubbles.update(now, this._ppu, this._reduceMotion);
 
     this._scene.update({
       dt,

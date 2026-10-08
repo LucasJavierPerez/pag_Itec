@@ -19,6 +19,8 @@ import { TouchControls } from './UI/TouchControls.ts';
 import { getCharacterId, getSkinId } from './Experience/Map/skinState.ts';
 import { MapOnline } from './Experience/Map/net/MapOnline.ts';
 import { OnlineControls } from './UI/OnlineControls.ts';
+import { ChatStore } from './UI/chat/ChatStore.ts';
+import { ChatPanel } from './UI/chat/ChatPanel.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -84,10 +86,16 @@ new GoalCelebration();
 // Runtime style switcher: UI theme + 3D re-skin (physics untouched)
 // Multiplayer glue: lazy connection, nickname and consent prompt (never connects before the player agrees)
 const online = new MapOnline();
+// Chat history lives for the whole page (it survives tab switches); the panel itself is built lazily
+const chatStore = new ChatStore();
+chatStore.attach(window);
+let chatPanel: ChatPanel | null = null;
+const ensureChat = (): ChatPanel => (chatPanel ??= new ChatPanel({ store: chatStore, online }));
 
 // Map tab: own canvas + render loop, created hidden and only active while its tab is shown
 const mapView = new MapView({
   online,
+  chat: chatStore,
   quality: experience.quality,
   getStyleId: () => experience.world.styleId,
   onArrive: (id) => {
@@ -118,6 +126,7 @@ const hudMenu = new HudMenu([styleSwitcher.element, qualityToggle.element]);
 // Map-only entries (visible in the compact layout while the Mapa tab is active)
 hudMenu.addAction('Ver todo el mapa', 'Ver todo el mapa', () => mapView.resetView(), true);
 hudMenu.addAction('Skins', 'Elegir personaje y color', () => mapView.skinPicker.openAsSheet(), true);
+hudMenu.addAction('Abrir chat', 'Abrir el chat del mapa', () => ensureChat().open(), true);
 new OnlineControls(online, mapView.skinPicker.panel, hudMenu);
 
 // Vehicle reset handler
@@ -219,11 +228,13 @@ new ViewManager(
         mapActive = true;
         controls.setTouchDirection(null);
         mapView.activate();
+        ensureChat().setViewActive(true);
       },
       deactivate: () => {
         mapActive = false;
         mapView.setStickDirection({ active: false, dirX: 0, dirZ: 0, strength: 0 });
         mapView.deactivate();
+        chatPanel?.setViewActive(false);
       },
     },
     explorerCanvas: canvas,

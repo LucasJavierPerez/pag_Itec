@@ -114,6 +114,17 @@ export class RemotePlayers {
   }
 
   // ------------------------------------------------------------------ network binding
+  /**
+   * Where the head (name tag anchor) of a peer is right now, in world space. Returns false when that
+   * peer is not drawn (unknown, culled off-screen or hidden by the level of detail).
+   */
+  headPosition(id: string, out: THREE.Vector3): boolean {
+    const r = this._remotes.get(id);
+    if (!r || !r.placed || !r.onScreen || r.detail === 'hidden') return false;
+    out.set(r.x, tagHeight(MAP_ROBOT_SCALE) + r.actor.tilt.position.y, r.z);
+    return true;
+  }
+
   bind(net: NetClient): void {
     this.unbind();
     this._net = net;
