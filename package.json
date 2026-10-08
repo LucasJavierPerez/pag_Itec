@@ -18,6 +18,7 @@
     "dev:server": "wrangler dev --port 8787 --local",
     "typecheck:server": "tsc -p server/tsconfig.json --noEmit",
     "typecheck": "tsc --noEmit && npm run typecheck:server",
+    "check:clientnet": "node --experimental-strip-types scripts/check-client-net.mjs",
     "check:room": "node scripts/check-room.mjs"
   },
   "devDependencies": {

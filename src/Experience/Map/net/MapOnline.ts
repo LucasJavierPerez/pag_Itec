@@ -134,7 +134,7 @@ export class MapOnline {
     c.setViewActive(this._mapActive);
     c.on('status', (info) => {
       this._status = info;
-      this._dispatch('net-status', { status: info.status, count: info.count, message: info.message });
+      this._dispatch('net-status', { status: info.status, count: info.count, message: info.message, room: info.room });
     });
     c.on('welcome', (m) => {
       this._idleSent = false;
@@ -232,7 +232,7 @@ export class MapOnline {
     this._sessionNick = nick;
     writeSession(ONLINE_SESSION_KEY, '0');
     this._status = { status: 'idle', count: 0, message: 'Jugando sin conexión', room: null };
-    this._dispatch('net-status', { status: 'idle', count: 0, message: this._status.message });
+    this._dispatch('net-status', { status: 'idle', count: 0, message: this._status.message, room: null });
     this._dispatch('net-nick', { nick });
   }
 
