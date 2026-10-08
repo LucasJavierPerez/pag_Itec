@@ -74,6 +74,8 @@ body {
 }
 .hud-menu__button,
 .hud-menu__fullscreen,
+.hud-menu__action,
+.map-hud__center,
 .info-panel__bar,
 .view-tabs__short {
   display: none;
@@ -232,7 +234,8 @@ body.touch-ui[data-view='map'] .map-legend {
   .map-legend__toggle,
   .map-legend__item,
   .info-panel__close,
-  .hud-menu__fullscreen {
+  .hud-menu__fullscreen,
+  .hud-menu__action {
     min-height: var(--touch-target);
   }
   .map-hud__button,
@@ -348,7 +351,8 @@ body.touch-ui[data-view='map'] .map-legend {
     font-size: var(--ui-font-size);
   }
   body .hud-menu .hud-menu__panel .quality-toggle,
-  body .hud-menu .hud-menu__panel .hud-menu__fullscreen {
+  body .hud-menu .hud-menu__panel .hud-menu__fullscreen,
+  body .hud-menu .hud-menu__panel .hud-menu__action {
     position: static;
     inset: auto;
     display: block;
@@ -396,6 +400,65 @@ body.touch-ui[data-view='map'] .map-legend {
   .map-hud__button {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
+  }
+  /* Phones: the HUD shrinks to one round "center on my robot" icon (zoom = pinch / double-tap;
+   * "Ver todo" and "Skins" live in the hamburger menu, see HudMenu.addAction) */
+  .map-hud {
+    padding: 0;
+    gap: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    clip-path: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .map-hud__desktop-only {
+    display: none;
+  }
+  .map-hud__center {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    cursor: pointer;
+    color: var(--text-primary);
+    background: var(--ui-surface);
+    border: var(--ui-border);
+    border-radius: 50%;
+    box-shadow: var(--ui-shadow);
+    opacity: 0.85;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.2s, background 0.2s;
+  }
+  /* 44px hit area around the 40px visual */
+  .map-hud__center::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+  }
+  .map-hud__center:active {
+    opacity: 1;
+    background: var(--ui-btn-hover);
+  }
+  .map-hud__center:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
+  }
+  /* Map-only menu entries */
+  body .hud-menu .hud-menu__panel .hud-menu__action--map {
+    display: none;
+  }
+  body[data-view='map'] .hud-menu .hud-menu__panel .hud-menu__action--map {
+    display: block;
+  }
+  .hud-menu__action:focus-visible {
+    outline: 2px solid var(--ui-focus);
+    outline-offset: 2px;
   }
   .skin-picker__panel {
     z-index: 46;
@@ -613,6 +676,12 @@ body.touch-ui[data-view='map'] .map-legend {
 @media (prefers-reduced-motion: reduce) {
   #info-panel,
   #info-panel.info-panel--visible {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-hud__center {
     transition: none;
   }
 }

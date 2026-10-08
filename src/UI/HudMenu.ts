@@ -73,6 +73,25 @@ export class HudMenu {
     window.addEventListener('keydown', this._onKeyDown);
   }
 
+  /**
+   * Adds an action button to the panel (compact layout only). `mapOnly` actions are shown just
+   * while the Mapa view is active (CSS keys off body[data-view='map']). Selecting one closes the menu.
+   */
+  addAction(label: string, ariaLabel: string, onSelect: () => void, mapOnly = false): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'hud-menu__action';
+    if (mapOnly) b.classList.add('hud-menu__action--map');
+    b.textContent = label;
+    b.setAttribute('aria-label', ariaLabel);
+    b.addEventListener('click', () => {
+      this.setOpen(false);
+      onSelect();
+    });
+    this._panel.insertBefore(b, this._fullscreen);
+    return b;
+  }
+
   private _renderFullscreen(): void {
     if (!this._fullscreen) return;
     const on = !!document.fullscreenElement;

@@ -210,12 +210,14 @@ export class MapView {
     hud.setAttribute('role', 'group');
     hud.setAttribute('aria-label', 'Controles del mapa');
     hud.append(
-      this._hudButton('+', 'Acercar', () => this._zoomBy(KEY_ZOOM_STEP)),
-      this._hudButton('−', 'Alejar', () => this._zoomBy(1 / KEY_ZOOM_STEP)),
-      this._hudButton('Centrar', 'Centrar el mapa en el robot', () => this.centerOnRobot(), 'map-hud__button--wide'),
-      this._hudButton('Ver todo', 'Ver todo el mapa', () => this.resetView(), 'map-hud__button--wide'),
+      this._hudButton('+', 'Acercar', () => this._zoomBy(KEY_ZOOM_STEP), 'map-hud__desktop-only'),
+      this._hudButton('−', 'Alejar', () => this._zoomBy(1 / KEY_ZOOM_STEP), 'map-hud__desktop-only'),
+      this._hudButton('Centrar', 'Centrar el mapa en el robot', () => this.centerOnRobot(), 'map-hud__button--wide map-hud__desktop-only'),
+      this._hudButton('Ver todo', 'Ver todo el mapa', () => this.resetView(), 'map-hud__button--wide map-hud__desktop-only'),
       this.skinPicker.toggle,
+      this._centerIconButton(),
     );
+    this.skinPicker.toggle.classList.add('map-hud__desktop-only');
 
     this.root.append(this._canvas, this._tooltip, hud, this.skinPicker.panel, this.botBubble.element, this.legend.element);
     document.body.appendChild(this.root);
@@ -233,6 +235,21 @@ export class MapView {
       pad.x = stop.x;
       pad.z = stop.z;
     }
+  }
+
+  /** Compact HUD (phones): the only map button left on screen; hidden on desktop via CSS. */
+  private _centerIconButton(): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'map-hud__center';
+    b.setAttribute('aria-label', 'Centrar en mi personaje');
+    b.innerHTML =
+      '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="currentColor"/><path d="M12 1.5v5M12 17.5v5M1.5 12h5M17.5 12h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+    b.addEventListener('click', (e) => {
+      if (e.detail > 0) b.blur();
+      this.centerOnRobot();
+    });
+    return b;
   }
 
   private _hudButton(label: string, aria: string, onClick: () => void, extra = ''): HTMLButtonElement {

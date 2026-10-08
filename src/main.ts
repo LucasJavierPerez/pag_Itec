@@ -108,7 +108,10 @@ const styleSwitcher = new StyleSwitcher(initialStyle, {
 });
 const qualityToggle = new QualityToggle(experience.quality);
 // Wraps both in a menu on small screens; on desktop the wrapper is layout-neutral
-new HudMenu([styleSwitcher.element, qualityToggle.element]);
+const hudMenu = new HudMenu([styleSwitcher.element, qualityToggle.element]);
+// Map-only entries (visible in the compact layout while the Mapa tab is active)
+hudMenu.addAction('Ver todo el mapa', 'Ver todo el mapa', () => mapView.resetView(), true);
+hudMenu.addAction('Skins', 'Elegir personaje y color', () => mapView.skinPicker.openAsSheet(), true);
 
 // Vehicle reset handler
 window.addEventListener('vehicle-reset', () => {

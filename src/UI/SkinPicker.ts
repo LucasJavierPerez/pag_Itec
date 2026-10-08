@@ -10,6 +10,11 @@ import { CharacterThumbs } from './CharacterThumbs.ts';
 const SWATCH_COLUMNS = 4;
 const CARD_COLUMNS = 3;
 const GAP = 8;
+/** Keep in sync with the compact breakpoint in ui-mobile.css (and COMPACT_QUERY in MapLegend.ts). */
+const COMPACT_QUERY = '(max-width: 640px), (max-height: 480px) and (orientation: landscape)';
+/** Compact sheet: top offset below the tabs row, and share of the viewport height it may use. */
+const SHEET_TOP = 64;
+const SHEET_MAX_VH = 0.6;
 
 export interface SkinPickerOptions {
   /** Visual style the thumbnails are rendered in (defaults to the stored style). */
@@ -40,6 +45,9 @@ export class SkinPicker {
   private _onPointerDown = (e: PointerEvent): void => {
     const t = e.target as Node;
     if (this._open && !this.panel.contains(t) && !this.toggle.contains(t)) this.close();
+  };
+  private _onEscape = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape' && this._open) this.close();
   };
   private _onResize = (): void => {
     if (this._open) this._place();
@@ -106,6 +114,7 @@ export class SkinPicker {
     this.panel.addEventListener('keydown', (e) => this._onKeyDown(e));
 
     document.addEventListener('pointerdown', this._onPointerDown);
+    window.addEventListener('keydown', this._onEscape);
     window.addEventListener('resize', this._onResize);
     window.addEventListener('skin-change', this._onSkin);
     window.addEventListener('style-change', this._onStyle);
@@ -280,6 +289,12 @@ export class SkinPicker {
     }
   }
 
+  /** Opens the panel as a centered sheet (used from the compact menu, where the toggle is hidden). */
+  openAsSheet(): void {
+    this.setOpen(true);
+    this._cards.get(getCharacterId())?.focus({ preventScroll: true });
+  }
+
   close(): void {
     if (this._open) this.setOpen(false);
   }
@@ -288,10 +303,21 @@ export class SkinPicker {
   private _place(): void {
     const hud = this.toggle.parentElement;
     if (!hud) return;
+    const panel = this.panel;
+    if (window.matchMedia?.(COMPACT_QUERY).matches) {
+      // Phones: centered sheet at the top, never reaching the joystick / legend corners
+      const top = `calc(var(--safe-top, 0px) + ${SHEET_TOP}px)`;
+      panel.style.left = '0';
+      panel.style.right = '0';
+      panel.style.marginInline = 'auto';
+      panel.style.top = top;
+      panel.style.maxHeight = `min(${SHEET_MAX_VH * 100}dvh, calc(100dvh - ${top} - ${GAP}px))`;
+      return;
+    }
+    panel.style.marginInline = '';
     const hudRect = hud.getBoundingClientRect();
     const toggleRect = this.toggle.getBoundingClientRect();
     const column = getComputedStyle(hud).flexDirection === 'column';
-    const panel = this.panel;
     panel.style.left = 'auto';
     panel.style.maxHeight = `${Math.max(160, window.innerHeight - 2 * GAP)}px`;
     if (column) {
@@ -307,6 +333,7 @@ export class SkinPicker {
 
   dispose(): void {
     document.removeEventListener('pointerdown', this._onPointerDown);
+    window.removeEventListener('keydown', this._onEscape);
     window.removeEventListener('resize', this._onResize);
     window.removeEventListener('skin-change', this._onSkin);
     window.removeEventListener('style-change', this._onStyle);

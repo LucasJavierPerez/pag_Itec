@@ -1071,3 +1071,14 @@ body[data-view='map'] #controls-hint {
 .info-panel__link[hidden] {
   display: none;
 }
+
+/* === Compact map HUD: center icon (phones), faceted like the other low-poly buttons === */
+@media (max-width: 640px), (max-height: 480px) and (orientation: landscape) {
+  .map-hud .map-hud__center {
+    border: var(--ui-btn-border);
+    border-radius: var(--ui-btn-radius);
+    clip-path: var(--ui-btn-clip);
+    background: var(--ui-btn-bg);
+    box-shadow: none;
+  }
+}
