@@ -88,7 +88,7 @@ export type ClientMessage =
 
 // ---------------------------------------------------------------- server -> client
 export type ServerMessage =
-  | { t: 'welcome'; v: number; id: string; serverTime: number; room: string; peers: Peer[] }
+  | { t: 'welcome'; v: number; id: string; nick: string; serverTime: number; room: string; peers: Peer[] }
   | { t: 'join'; peer: Peer }
   | { t: 'leave'; id: string }
   | { t: 'state'; st: number; p: PosTuple[] }

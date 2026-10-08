@@ -377,6 +377,7 @@ export class MapRoom extends DurableObject<Env> {
       t: 'welcome',
       v: PROTOCOL_VERSION,
       id: c.id,
+      nick: c.nick,
       serverTime: now,
       room: this.room ?? this.ctx.id.name ?? sanitizeRoomName(null),
       peers,

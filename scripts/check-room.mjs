@@ -97,7 +97,7 @@ async function main() {
   ok(await a.opened, 'A connects');
   a.send(hello('Ana​‮ López', 'programadora', 'azul-itec'));
   const wa = await a.wait((m) => m.t === 'welcome');
-  ok(wa && wa.v === 1 && typeof wa.id === 'string' && wa.room === ROOM && Array.isArray(wa.peers), 'A welcome shape');
+  ok(wa && wa.v === 1 && typeof wa.id === 'string' && typeof wa.nick === 'string' && wa.room === ROOM && Array.isArray(wa.peers), 'A welcome shape');
   ok(wa && Math.abs(wa.serverTime - Date.now()) < 2000, 'serverTime close to local time');
   ok(wa && wa.peers.length === 0, 'A sees no peers');
 
