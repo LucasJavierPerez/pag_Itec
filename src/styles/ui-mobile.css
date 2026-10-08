@@ -685,3 +685,36 @@ body.touch-ui[data-view='map'] .map-legend {
     transition: none;
   }
 }
+
+/* === Online: nickname prompt on phones (top aligned so the keyboard never hides the buttons) === */
+@media (max-width: 640px), (max-height: 640px) {
+  .nick-prompt {
+    align-items: flex-start;
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-right: calc(var(--safe-right) + 12px);
+    padding-bottom: calc(var(--safe-bottom) + 12px);
+    padding-left: calc(var(--safe-left) + 12px);
+  }
+  .nick-prompt__dialog {
+    margin: 0 auto;
+    padding: 16px 16px 14px;
+  }
+  .nick-prompt__text {
+    margin-bottom: 10px;
+  }
+  .nick-prompt__privacy {
+    margin-bottom: 12px;
+  }
+  .nick-prompt__actions {
+    flex-direction: column;
+  }
+  .nick-prompt__button {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+@media (pointer: coarse) {
+  .online-controls__button {
+    min-height: var(--touch-target);
+  }
+}
