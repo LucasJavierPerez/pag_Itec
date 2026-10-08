@@ -21,7 +21,11 @@ import { BotBubble } from '../../UI/BotBubble.ts';
 import { BotCrowd } from './BotCrowd.ts';
 import { BOTS } from './botSim.ts';
 import { botLine, buildBotFacts } from './botFacts.ts';
-import { getSharedTimeMs } from './sharedTime.ts';
+import { getSharedTimeMs, stepSharedClock } from './sharedTime.ts';
+import { MAP_ROBOT_SCALE } from './RobotActor.ts';
+import { RemotePlayers } from './RemotePlayers.ts';
+import { NameTag, NameTagLayer, SELF_ACCENT, TAG_PRIORITY, tagHeight } from './nameTag.ts';
+import type { MapOnline } from './net/MapOnline.ts';
 import { PlayerMotion } from './playerMotion.ts';
 import { PLAYER_RADIUS, SECRET_WALK, createWalkable } from './walkable.ts';
 import { SecretSpot, isAdaFound, markAdaFound } from './Secret.ts';
@@ -87,6 +91,8 @@ export interface MapViewOptions {
   onDepart: () => void;
   /** Shows a card that is not a map point (the Ada Byron easter egg). */
   onSecret: (entry: InfoEntry) => void;
+  /** Multiplayer glue: nickname, connection and position reports. */
+  online: MapOnline;
 }
 
 /**
@@ -109,6 +115,9 @@ export class MapView {
   private _robot: RobotActor | null = null;
   private _runner: RobotRunner | null = null;
   private _crowd: BotCrowd | null = null;
+  private _remote: RemotePlayers | null = null;
+  private _tagLayer = new NameTagLayer();
+  private _selfTag: NameTag | null = null;
   private _botFacts = buildBotFacts(MAP_POINTS);
   private _lastFact = -1;
   private _bubbleBot = -1;
@@ -292,6 +301,7 @@ export class MapView {
     if (this._dirty || this._builtStyle !== this._opts.getStyleId()) this._rebuild();
     this._lastTime = performance.now();
     this._rafId = requestAnimationFrame(this._frame);
+    this._opts.online.mapShown();
   }
 
   /** Stops the render loop while the page is hidden (view stays active). */
@@ -319,6 +329,7 @@ export class MapView {
     window.removeEventListener('blur', this._onBlur);
     this.skinPicker.close();
     this.botBubble.hide();
+    this._opts.online.mapHidden();
     this._releaseInput();
     this._pointers.clear();
     this._drag = null;
@@ -381,6 +392,20 @@ export class MapView {
     }
     this._crowd.setShadows(shadows);
     this._crowd.setMapSkin(skin);
+
+    if (!this._remote) {
+      this._remote = new RemotePlayers(this._three, styleId, quality);
+      this._opts.online.onClient((client) => this._remote?.bind(client));
+    } else {
+      this._remote.setStyle(styleId);
+      this._remote.setQuality(quality);
+    }
+    this._remote.setShadows(shadows);
+    this._remote.setMapSkin(skin);
+    if (!this._selfTag) {
+      this._selfTag = new NameTag({ text: this._opts.online.nick || ' ', accent: SELF_ACCENT, self: true }, quality === 'high');
+      this._three.add(this._selfTag.sprite);
+    }
 
     this._secret?.dispose();
     this._secret = new SecretSpot(skin, quality, this._adaFound);
@@ -875,6 +900,25 @@ export class MapView {
     }
   }
 
+  /** Own name tag above the player and the position reports for the other players. */
+  private _updateOnline(now: number, robot: RobotActor, runner: RobotRunner): void {
+    const online = this._opts.online;
+    const nick = online.nick;
+    const tag = this._selfTag;
+    if (tag && nick) {
+      tag.update({ text: nick, accent: SELF_ACCENT, self: true }, this._opts.quality.level === 'high');
+      this._tagLayer.add(
+        tag,
+        robot.position.x,
+        tagHeight(MAP_ROBOT_SCALE) + robot.tilt.position.y,
+        robot.position.z,
+        TAG_PRIORITY.self,
+        0,
+      );
+    }
+    online.tick(now, robot.position.x, robot.position.z, robot.holder.rotation.y, runner.speed);
+  }
+
   /** Standing on a stop pad for a moment opens its card (WASD / joystick users get cards too). */
   private _updatePads(robot: RobotActor, runner: RobotRunner, dt: number): void {
     let current: string | null = null;
@@ -923,6 +967,8 @@ export class MapView {
     const dt = Math.min((now - this._lastTime) / 1000, 0.1);
     this._lastTime = now;
     this._time += dt;
+    stepSharedClock();
+    this._tagLayer.begin();
 
     this._updateZoom(dt);
 
@@ -949,13 +995,21 @@ export class MapView {
       if (this._follow) this._followRobot(robot.position, dt);
     }
 
+    if (robot && this._runner) this._updateOnline(now, robot, this._runner);
+
+    if (this._remote && robot) {
+      this._remote.update(dt, this._time, this._ppu, this._reduceMotion, robot.position, this._camera, this._tagLayer);
+    }
+
     if (this._crowd && robot) {
-      this._crowd.update(dt, this._time, getSharedTimeMs(), this._ppu, this._reduceMotion, robot.position);
+      this._crowd.update(dt, this._time, getSharedTimeMs(), this._ppu, this._reduceMotion, robot.position, this._tagLayer);
       if (this.botBubble.visible && this._bubbleBot >= 0) {
         this._crowd.headPosition(this._bubbleBot, this._head).project(this._camera);
         this.botBubble.setPosition((this._head.x * 0.5 + 0.5) * this._w, (-this._head.y * 0.5 + 0.5) * this._h);
       }
     }
+
+    this._tagLayer.resolve(this._camera, this._w, this._h, this._ppu);
 
     this._scene.update({
       dt,

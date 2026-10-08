@@ -14,6 +14,9 @@ export class Controls {
   }
 
   private handleKey(e: KeyboardEvent, pressed: boolean): void {
+    // Typing in a text field (nickname prompt) must not drive the vehicle
+    const el = e.target as HTMLElement | null;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
     switch (e.code) {
       case 'KeyW': case 'ArrowUp': this.keys.forward = pressed; break;
       case 'KeyS': case 'ArrowDown': this.keys.backward = pressed; break;

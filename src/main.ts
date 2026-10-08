@@ -17,6 +17,8 @@ import { getMapPoint } from './UI/MapData.ts';
 import { HudMenu } from './UI/HudMenu.ts';
 import { TouchControls } from './UI/TouchControls.ts';
 import { getCharacterId, getSkinId } from './Experience/Map/skinState.ts';
+import { MapOnline } from './Experience/Map/net/MapOnline.ts';
+import { OnlineControls } from './UI/OnlineControls.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -80,8 +82,12 @@ const infoPanel = new InfoPanel();
 new GoalCelebration();
 
 // Runtime style switcher: UI theme + 3D re-skin (physics untouched)
+// Multiplayer glue: lazy connection, nickname and consent prompt (never connects before the player agrees)
+const online = new MapOnline();
+
 // Map tab: own canvas + render loop, created hidden and only active while its tab is shown
 const mapView = new MapView({
+  online,
   quality: experience.quality,
   getStyleId: () => experience.world.styleId,
   onArrive: (id) => {
@@ -112,6 +118,7 @@ const hudMenu = new HudMenu([styleSwitcher.element, qualityToggle.element]);
 // Map-only entries (visible in the compact layout while the Mapa tab is active)
 hudMenu.addAction('Ver todo el mapa', 'Ver todo el mapa', () => mapView.resetView(), true);
 hudMenu.addAction('Skins', 'Elegir personaje y color', () => mapView.skinPicker.openAsSheet(), true);
+new OnlineControls(online, mapView.skinPicker.panel, hudMenu);
 
 // Vehicle reset handler
 window.addEventListener('vehicle-reset', () => {

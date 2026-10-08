@@ -192,6 +192,10 @@ export class NetClient {
   get room(): string | null {
     return this._room;
   }
+  /** True between `connect()` and `disconnect()` (the client is trying to be, or is, online). */
+  get wanted(): boolean {
+    return this._wanted;
+  }
   /** True after the automatic attempts ran out: only `connect()` starts again. */
   get gaveUp(): boolean {
     return this._gaveUp;
