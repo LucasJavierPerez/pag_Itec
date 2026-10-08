@@ -1,6 +1,6 @@
 // Headless checks for the joystick direction mapping and steering math. Run with:
 //   node --experimental-strip-types scripts/check-joystick.mjs
-import { stickToDirection } from '../src/UI/joystickMapping.ts';
+import { isInsideStick, stickToDirection } from '../src/UI/joystickMapping.ts';
 import { shortestAngle, stepYaw } from '../src/Experience/Physics/steering.ts';
 
 let failures = 0;
@@ -67,6 +67,18 @@ check(isZero(stickToDirection(30, -30, 0)), 'radius 0 is safe');
 check(isZero(stickToDirection(30, -30, -5)), 'negative radius is safe');
 check(isZero(stickToDirection(NaN, 10, R)), 'NaN input is safe');
 check(isZero(stickToDirection(10, 10, NaN)), 'NaN radius is safe');
+
+// Hit test for the fixed base
+check(isInsideStick(100, 100, 100, 100, 56, 0.35), 'centre is inside');
+check(isInsideStick(100 + 56, 100, 100, 100, 56, 0), 'exact edge is inside');
+check(!isInsideStick(100 + 57, 100, 100, 100, 56, 0), 'just past the edge is outside without tolerance');
+check(isInsideStick(100 + 70, 100, 100, 100, 56, 0.35), 'inside the tolerance ring counts');
+check(!isInsideStick(100 + 76, 100, 100, 100, 56, 0.35), 'beyond radius * 1.35 is outside');
+check(!isInsideStick(300, 400, 100, 100, 56, 0.35), 'far away is outside');
+check(!isInsideStick(NaN, 100, 100, 100, 56, 0.35) && !isInsideStick(100, 100, NaN, 100, 56, 0.35), 'NaN coordinates never hit');
+check(!isInsideStick(100, 100, 100, 100, NaN, 0.35) && !isInsideStick(100, 100, 100, 100, Infinity, 0.35), 'invalid radius never hits');
+check(!isInsideStick(100, 100, 100, 100, -5, 0.35) && !isInsideStick(100, 100, 100, 100, 0, 0.35), 'non-positive radius never hits');
+check(!isInsideStick(100, 100, 100, 100, 56, -0.5), 'negative tolerance is rejected');
 
 // Steering: shortest way across the +-PI seam
 check(near(shortestAngle(3.0, -3.0), 2 * Math.PI - 6.0), 'shortest angle 3.0 -> -3.0 goes through PI');

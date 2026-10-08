@@ -1,4 +1,4 @@
-import { stickToDirection } from './joystickMapping.ts';
+import { isInsideStick, stickToDirection } from './joystickMapping.ts';
 import type { StickDirection } from './joystickMapping.ts';
 import { haptic, isCoarsePointer, onCoarsePointerChange } from '../utils/device.ts';
 
@@ -6,20 +6,18 @@ import { haptic, isCoarsePointer, onCoarsePointerChange } from '../utils/device.
 const STICK_RADIUS = 56;
 const DEAD_ZONE = 0.25;
 const HINT_MS = 6000;
-/** A touch shorter than this (ms) and moving less than TAP_MAX_MOVE (px) is a tap, not a stick drag. */
-const TAP_MAX_MS = 280;
-const TAP_MAX_MOVE = 10;
+/** Hit radius = STICK_RADIUS * (1 + HIT_TOLERANCE); keep in sync with the ::before inset in ui-mobile.css. */
+const HIT_TOLERANCE = 0.35;
 
 const NONE: StickDirection = { active: false, dirX: 0, dirZ: 0, strength: 0 };
 
 /**
- * Virtual joystick (floating base, left side) plus a reset button (bottom-right).
+ * Virtual joystick (fixed base pinned bottom-left; only the base captures touches) plus a reset button (bottom-right).
  * Only visible on coarse pointers and while the 3D explorer is the active view.
  * Output goes through `onChange` as a screen-relative direction (up = -Z, right = +X).
  */
 export class TouchControls {
   private _root: HTMLDivElement;
-  private _zone: HTMLDivElement;
   private _stick: HTMLDivElement;
   private _knob: HTMLDivElement;
   private _reset: HTMLButtonElement;
@@ -30,8 +28,6 @@ export class TouchControls {
   private _pointerId: number | null = null;
   private _originX = 0;
   private _originY = 0;
-  private _downAt = { x: 0, y: 0, time: 0 };
-  private _onTap: ((x: number, y: number) => void) | null = null;
 
   private _coarse: boolean;
   private _viewActive = true;
@@ -51,17 +47,13 @@ export class TouchControls {
     this._root = document.createElement('div');
     this._root.className = 'touch-controls';
 
-    this._zone = document.createElement('div');
-    this._zone.className = 'touch-controls__zone';
-
     this._stick = document.createElement('div');
     this._stick.className = 'touch-controls__stick';
     this._stick.setAttribute('aria-hidden', 'true');
     this._knob = document.createElement('div');
     this._knob.className = 'touch-controls__knob';
     this._stick.appendChild(this._knob);
-    this._zone.appendChild(this._stick);
-
+    
     this._reset = document.createElement('button');
     this._reset.type = 'button';
     this._reset.className = 'touch-controls__reset';
@@ -71,18 +63,19 @@ export class TouchControls {
 
     this._hint = document.createElement('p');
     this._hint.className = 'touch-controls__hint';
-    this._hint.textContent = 'Arrastrá el joystick: el robot va hacia donde empujás';
+    this._hint.textContent = 'Usá el joystick de la esquina para mover al robot';
     this._hint.setAttribute('aria-hidden', 'true');
 
-    this._root.append(this._zone, this._reset, this._hint);
+    this._root.append(this._stick, this._reset, this._hint);
     document.body.appendChild(this._root);
 
-    this._zone.addEventListener('pointerdown', (e) => this._onDown(e));
-    this._zone.addEventListener('pointermove', (e) => this._onMove(e));
-    this._zone.addEventListener('pointerup', (e) => this._onEnd(e));
-    this._zone.addEventListener('pointercancel', (e) => this._onEnd(e));
-    this._zone.addEventListener('lostpointercapture', (e) => this._onEnd(e));
-    this._zone.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Only the base disc listens: touches anywhere else go straight to the canvas / map
+    this._stick.addEventListener('pointerdown', (e) => this._onDown(e));
+    this._stick.addEventListener('pointermove', (e) => this._onMove(e));
+    this._stick.addEventListener('pointerup', (e) => this._onEnd(e));
+    this._stick.addEventListener('pointercancel', (e) => this._onEnd(e));
+    this._stick.addEventListener('lostpointercapture', (e) => this._onEnd(e));
+    this._stick.addEventListener('contextmenu', (e) => e.preventDefault());
 
     this._reset.addEventListener('click', () => {
       haptic(12);
@@ -100,11 +93,6 @@ export class TouchControls {
     window.addEventListener('goal-scored', this._onEvent);
     window.addEventListener('classroom-enter', this._onEvent);
     this._sync();
-  }
-
-  /** Taps on the joystick zone are forwarded (the map uses them to select points under the zone). */
-  setTapHandler(handler: ((x: number, y: number) => void) | null): void {
-    this._onTap = handler;
   }
 
   /** Called by the view manager: the joystick only makes sense in the explorer. */
@@ -144,25 +132,22 @@ export class TouchControls {
 
   private _onDown(e: PointerEvent): void {
     if (!this._enabled || this._pointerId !== null) return;
+    const rect = this._stick.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const onBase = e.target === this._stick || this._stick.contains(e.target as Node);
+    if (!onBase && !isInsideStick(e.clientX, e.clientY, cx, cy, STICK_RADIUS, HIT_TOLERANCE)) return;
     e.preventDefault();
+    e.stopPropagation();
     this._pointerId = e.pointerId;
     try {
-      this._zone.setPointerCapture(e.pointerId);
+      this._stick.setPointerCapture(e.pointerId);
     } catch {
-      // capture can fail if the pointer is already gone; moves still arrive on the zone
+      // capture can fail if the pointer is already gone; moves still arrive on the base
     }
     this._hideHint();
-    this._downAt = { x: e.clientX, y: e.clientY, time: performance.now() };
-
-    // Floating base: centered where the thumb landed, kept fully inside the zone
-    const rect = this._zone.getBoundingClientRect();
-    const pad = STICK_RADIUS + 8;
-    this._originX = Math.min(Math.max(e.clientX, rect.left + pad), rect.right - pad);
-    this._originY = Math.min(Math.max(e.clientY, rect.top + pad), rect.bottom - pad);
-    this._stick.style.left = `${this._originX - rect.left}px`;
-    this._stick.style.top = `${this._originY - rect.top}px`;
-    this._stick.style.right = 'auto';
-    this._stick.style.bottom = 'auto';
+    this._originX = cx;
+    this._originY = cy;
     this._stick.classList.add('touch-controls__stick--active');
     this._move(e.clientX, e.clientY);
     haptic(6);
@@ -171,18 +156,14 @@ export class TouchControls {
   private _onMove(e: PointerEvent): void {
     if (e.pointerId !== this._pointerId) return;
     e.preventDefault();
+    e.stopPropagation();
     this._move(e.clientX, e.clientY);
   }
 
   private _onEnd(e: PointerEvent): void {
     if (e.pointerId !== this._pointerId) return;
-    const d = this._downAt;
-    const isTap =
-      e.type === 'pointerup' &&
-      performance.now() - d.time < TAP_MAX_MS &&
-      Math.hypot(e.clientX - d.x, e.clientY - d.y) < TAP_MAX_MOVE;
+    e.stopPropagation();
     this._release();
-    if (isTap) this._onTap?.(e.clientX, e.clientY);
   }
 
   private _move(x: number, y: number): void {
@@ -200,7 +181,7 @@ export class TouchControls {
   private _release(): void {
     if (this._pointerId !== null) {
       try {
-        this._zone.releasePointerCapture(this._pointerId);
+        this._stick.releasePointerCapture(this._pointerId);
       } catch {
         // already released
       }
@@ -208,11 +189,6 @@ export class TouchControls {
     }
     this._knob.style.transform = '';
     this._stick.classList.remove('touch-controls__stick--active');
-    // Back to the idle ghost position defined in CSS
-    this._stick.style.left = '';
-    this._stick.style.top = '';
-    this._stick.style.right = '';
-    this._stick.style.bottom = '';
     this._emit(NONE);
   }
 

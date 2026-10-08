@@ -39,3 +39,20 @@ export function stickToDirection(
   const t = span > 0 ? Math.min(1, Math.max(0, (ratio - deadzone) / span)) : 1;
   return { active: true, dirX: dx / len, dirZ: dy / len, strength: t * t * (3 - 2 * t) };
 }
+
+/**
+ * Hit test for the fixed joystick base: is the point within `radius * (1 + tolerance)` of the
+ * centre? Invalid numbers or a non-positive radius never hit.
+ */
+export function isInsideStick(
+  px: number,
+  py: number,
+  cx: number,
+  cy: number,
+  radius: number,
+  tolerance = 0,
+): boolean {
+  if (![px, py, cx, cy, radius, tolerance].every(Number.isFinite)) return false;
+  if (!(radius > 0) || tolerance < 0) return false;
+  return Math.hypot(px - cx, py - cy) <= radius * (1 + tolerance);
+}

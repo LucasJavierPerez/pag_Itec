@@ -63,12 +63,9 @@ let mapActive = false;
 // Controls
 const controls = new Controls();
 // The joystick drives the explorer vehicle or, in the Mapa tab, the map robot
-const touchControls = new TouchControls((dir) => {
+new TouchControls((dir) => {
   if (mapActive) mapView.setStickDirection(dir);
   else controls.setTouchDirection(dir);
-});
-touchControls.setTapHandler((x, y) => {
-  if (mapActive) mapView.tapAt(x, y);
 });
 
 // Trigger zones
