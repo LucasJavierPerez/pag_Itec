@@ -105,6 +105,8 @@ export class RobotRunner {
   private _turnRate = 0;
   private _wave = 0;
   private _face: Point2 | null = null;
+  /** True while the player drives the robot (WASD / joystick); the road run is then off. */
+  private _manual = false;
 
   private _dashTexture = createDashTexture();
   private _puffTexture = createPuffTexture();
@@ -185,6 +187,47 @@ export class RobotRunner {
     return this._speed;
   }
 
+  get heading(): number {
+    return this._heading;
+  }
+
+  get manual(): boolean {
+    return this._manual;
+  }
+
+  /** Stops the current run at once (route line included); the robot keeps its position. */
+  cancelRun(): void {
+    if (this.state === 'running') this.state = 'idle';
+    this._line = null;
+    this.targetId = null;
+    this._face = null;
+    this._ribbon.visible = false;
+    this._ribbon.geometry.setDrawRange(0, 0);
+  }
+
+  /**
+   * Per-frame pose of the robot while the player drives it: the position is set by the caller,
+   * the runner only mirrors speed/heading so the run animation and dust keep working.
+   */
+  driveManual(speed: number, heading: number, turnRate: number): void {
+    if (!this._manual) {
+      this.cancelRun();
+      this.state = 'idle';
+      this._manual = true;
+      this._wave = 0;
+    }
+    this._speed = speed;
+    this._heading = heading;
+    this._turnRate = turnRate;
+    this._actor.setHeading(heading);
+  }
+
+  endManual(): void {
+    this._manual = false;
+    this._speed = 0;
+    this._turnRate = 0;
+  }
+
   /** True when the robot is parked within `radius` of (x, z). */
   isParkedAt(x: number, z: number, radius = 0.4): boolean {
     if (this.state === 'running') return false;
@@ -201,6 +244,9 @@ export class RobotRunner {
     const snap = snapToGraph(this._graph, p.x, p.z);
     const route = routeFrom(this._graph, snap, stopNodeId);
     if (!route || route.points.length < 2) return false;
+    // Standing beside the road (free movement): walk to the road first instead of jumping onto it
+    if (snap.dist > 0.05) route.points.unshift({ x: p.x, z: p.z });
+    if (this._manual) this.endManual();
 
     this._line = makePolyline(route.points);
     this._dist = 0;
@@ -216,7 +262,9 @@ export class RobotRunner {
   }
 
   update(dt: number, time: number, ppu: number, reduceMotion: boolean): void {
-    if (this.state === 'running' && this._line) this._advance(dt, reduceMotion);
+    if (this._manual) {
+      // Pose is driven from outside (see driveManual)
+    } else if (this.state === 'running' && this._line) this._advance(dt, reduceMotion);
     else if (this.state === 'arrived') this._faceLandmark(dt);
 
     this._animate(dt, time, reduceMotion);
@@ -326,7 +374,7 @@ export class RobotRunner {
     material.size = DUST_WORLD_SIZE * ppu;
 
     // Emit behind the robot while it runs fast
-    if (!reduceMotion && this._speed > 3 && this.state === 'running') {
+    if (!reduceMotion && this._speed > 3 && (this.state === 'running' || this._manual)) {
       this._dustCarry += dt * DUST_RATE * Math.min(1, this._speed / RUN_SPEED);
       while (this._dustCarry >= 1) {
         this._dustCarry -= 1;

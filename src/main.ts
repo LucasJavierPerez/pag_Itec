@@ -51,9 +51,19 @@ const ball = new SoccerBall(experience.scene, physicsWorld.world);
 // The ball only owns physics; its visuals come from the current style
 experience.world.attachBall(ball);
 
+// Which tab is showing (set by the ViewManager hooks below)
+let mapActive = false;
+
 // Controls
 const controls = new Controls();
-const touchControls = new TouchControls((dir) => controls.setTouchDirection(dir));
+// The joystick drives the explorer vehicle or, in the Mapa tab, the map robot
+const touchControls = new TouchControls((dir) => {
+  if (mapActive) mapView.setStickDirection(dir);
+  else controls.setTouchDirection(dir);
+});
+touchControls.setTapHandler((x, y) => {
+  if (mapActive) mapView.tapAt(x, y);
+});
 
 // Trigger zones
 const triggers = new Triggers(
@@ -88,7 +98,6 @@ const mapView = new MapView({
 });
 
 // While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly
-let mapActive = false;
 const styleSwitcher = new StyleSwitcher(initialStyle, {
   request: (id) =>
     mapActive ? experience.styleTransition.applyImmediately(id) : experience.styleTransition.request(id),
@@ -192,12 +201,12 @@ new ViewManager(
     map: {
       activate: () => {
         mapActive = true;
-        touchControls.setViewActive(false);
+        controls.setTouchDirection(null);
         mapView.activate();
       },
       deactivate: () => {
         mapActive = false;
-        touchControls.setViewActive(true);
+        mapView.setStickDirection({ active: false, dirX: 0, dirZ: 0, strength: 0 });
         mapView.deactivate();
       },
     },

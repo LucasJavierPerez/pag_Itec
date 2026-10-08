@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "check:map": "node --experimental-strip-types scripts/check-roadgraph.mjs",
-    "check:touch": "node --experimental-strip-types scripts/check-joystick.mjs"
+    "check:touch": "node --experimental-strip-types scripts/check-joystick.mjs",
+    "check:walkable": "node --experimental-strip-types scripts/check-walkable.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",

@@ -6,6 +6,9 @@ import { haptic, isCoarsePointer, onCoarsePointerChange } from '../utils/device.
 const STICK_RADIUS = 56;
 const DEAD_ZONE = 0.25;
 const HINT_MS = 6000;
+/** A touch shorter than this (ms) and moving less than TAP_MAX_MOVE (px) is a tap, not a stick drag. */
+const TAP_MAX_MS = 280;
+const TAP_MAX_MOVE = 10;
 
 const NONE: StickDirection = { active: false, dirX: 0, dirZ: 0, strength: 0 };
 
@@ -27,6 +30,8 @@ export class TouchControls {
   private _pointerId: number | null = null;
   private _originX = 0;
   private _originY = 0;
+  private _downAt = { x: 0, y: 0, time: 0 };
+  private _onTap: ((x: number, y: number) => void) | null = null;
 
   private _coarse: boolean;
   private _viewActive = true;
@@ -97,6 +102,11 @@ export class TouchControls {
     this._sync();
   }
 
+  /** Taps on the joystick zone are forwarded (the map uses them to select points under the zone). */
+  setTapHandler(handler: ((x: number, y: number) => void) | null): void {
+    this._onTap = handler;
+  }
+
   /** Called by the view manager: the joystick only makes sense in the explorer. */
   setViewActive(active: boolean): void {
     this._viewActive = active;
@@ -142,6 +152,7 @@ export class TouchControls {
       // capture can fail if the pointer is already gone; moves still arrive on the zone
     }
     this._hideHint();
+    this._downAt = { x: e.clientX, y: e.clientY, time: performance.now() };
 
     // Floating base: centered where the thumb landed, kept fully inside the zone
     const rect = this._zone.getBoundingClientRect();
@@ -165,7 +176,13 @@ export class TouchControls {
 
   private _onEnd(e: PointerEvent): void {
     if (e.pointerId !== this._pointerId) return;
+    const d = this._downAt;
+    const isTap =
+      e.type === 'pointerup' &&
+      performance.now() - d.time < TAP_MAX_MS &&
+      Math.hypot(e.clientX - d.x, e.clientY - d.y) < TAP_MAX_MOVE;
     this._release();
+    if (isTap) this._onTap?.(e.clientX, e.clientY);
   }
 
   private _move(x: number, y: number): void {

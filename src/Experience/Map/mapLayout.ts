@@ -39,6 +39,10 @@ export interface DistrictRect {
 export const PLAZA_ID = 'plaza';
 export const PLAZA_RADIUS = 6.2;
 export const ROAD_WIDTH = 3.2;
+/** Walkable disc around each stop node (covers the ring marker and a little more). */
+export const STOP_PAD_RADIUS = 2.4;
+/** Standing within this distance of a stop node counts as being "on the pad" (opens the card). */
+export const PAD_TRIGGER_RADIUS = 1.7;
 
 /** Ground slab size; the camera never pans outside of it. */
 export const MAP_SIZE = { w: 100, d: 68, cx: 0, cz: 1 };

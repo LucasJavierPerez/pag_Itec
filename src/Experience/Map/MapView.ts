@@ -10,9 +10,12 @@ import { MapScene } from './MapScene.ts';
 import { RobotActor } from './RobotActor.ts';
 import { getMapSkin } from './skins/index.ts';
 import type { MapLights } from './skins/index.ts';
-import { MAP_SIZE, PLACEMENTS } from './mapLayout.ts';
+import { MAP_SIZE, PAD_TRIGGER_RADIUS, PLACEMENTS } from './mapLayout.ts';
 import { createLayoutGraph } from './roadGraph.ts';
 import { RobotRunner } from './RobotRunner.ts';
+import { PlayerMotion } from './playerMotion.ts';
+import { PLAYER_RADIUS, createWalkable } from './walkable.ts';
+import type { StickDirection } from '../../UI/joystickMapping.ts';
 
 // ---- Tunable camera constants
 /** Camera elevation above the horizon (90 = straight down). */
@@ -41,6 +44,9 @@ const TOUCH_PICK_RADIUS = 14;
 const DOUBLE_TAP_MS = 320;
 const DOUBLE_TAP_DIST = 30;
 const DOUBLE_TAP_ZOOM = 1.8;
+/** Standing this long (s) on a stop pad opens its card; leaving for longer than the second value re-arms it. */
+const PAD_DWELL_SECONDS = 0.6;
+const PAD_REARM_SECONDS = 2;
 /** How far the view target may leave the map. */
 const PAN_LIMIT_X = MAP_SIZE.w / 2 - 4;
 const PAN_LIMIT_Z_MIN = MAP_SIZE.cz - MAP_SIZE.d / 2 + 4;
@@ -74,6 +80,23 @@ export class MapView {
   private _robot: RobotActor | null = null;
   private _runner: RobotRunner | null = null;
   private _graph = createLayoutGraph();
+  private _walkable = createWalkable();
+  private _player = new PlayerMotion();
+  private _clamp = (x: number, z: number, out: { x: number; z: number }): void =>
+    this._walkable.clampInto(x, z, PLAYER_RADIUS, out);
+  private _keys = { up: false, down: false, left: false, right: false };
+  private _stick: StickDirection = { active: false, dirX: 0, dirZ: 0, strength: 0 };
+  private _wasPushing = false;
+  private _cardOpen = false;
+  private _forward = new THREE.Vector3();
+  private _inputX = 0;
+  private _inputZ = 0;
+  private _inputStrength = 0;
+  /** Stop pads: where standing still opens the card of a point. */
+  private _pads = PLACEMENTS.map((p) => ({ id: p.pointId, x: 0, z: 0, placement: p }));
+  private _padCurrent: string | null = null;
+  private _padDwell = 0;
+  private _padFired = new Map<string, number>();
   private _follow = false;
   private _builtStyle: StyleId | null = null;
   private _dirty = true;
@@ -108,6 +131,8 @@ export class MapView {
   private _onResize = (): void => this._resize();
   private _unsubResize: (() => void) | null = null;
   private _onKey = (e: KeyboardEvent): void => this._handleKey(e);
+  private _onKeyUp = (e: KeyboardEvent): void => this._setMoveKey(e.code, false);
+  private _onBlur = (): void => this._releaseInput();
   private _onStyle = (): void => {
     this._dirty = true;
     if (this._active) this._rebuild();
@@ -159,6 +184,11 @@ export class MapView {
     this._canvas.addEventListener('wheel', (e) => this._onWheel(e), { passive: false });
 
     this._camera.up.set(0, 1, 0);
+    for (const pad of this._pads) {
+      const stop = this._graph.nodes.get(pad.placement.stop)!;
+      pad.x = stop.x;
+      pad.z = stop.z;
+    }
   }
 
   private _hudButton(label: string, aria: string, onClick: () => void, extra = ''): HTMLButtonElement {
@@ -194,6 +224,8 @@ export class MapView {
     }
     this._unsubResize = onViewportResize(this._onResize);
     window.addEventListener('keydown', this._onKey);
+    window.addEventListener('keyup', this._onKeyUp);
+    window.addEventListener('blur', this._onBlur);
 
     if (this._dirty || this._builtStyle !== this._opts.getStyleId()) this._rebuild();
     this._lastTime = performance.now();
@@ -221,6 +253,9 @@ export class MapView {
     this._unsubResize?.();
     this._unsubResize = null;
     window.removeEventListener('keydown', this._onKey);
+    window.removeEventListener('keyup', this._onKeyUp);
+    window.removeEventListener('blur', this._onBlur);
+    this._releaseInput();
     this._pointers.clear();
     this._drag = null;
     this._pinch = null;
@@ -262,7 +297,8 @@ export class MapView {
       this._runner = new RobotRunner(this._robot, this._graph, this._three, {
         onArrive: (id) => {
           this._scene?.pop(id);
-          this._opts.onArrive(id);
+          this._markPadFired(id);
+          this._showCard(id);
         },
       });
     } else if (this._builtStyle !== styleId) {
@@ -486,7 +522,14 @@ export class MapView {
   private _handleKey(e: KeyboardEvent): void {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const el = e.target as HTMLElement | null;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+    if (this._isMoveCode(e.code)) {
+      // Arrow keys belong to the tab bar while it has focus (tab navigation)
+      if (e.code.startsWith('Arrow') && el?.closest('[role="tablist"]')) return;
+      this._setMoveKey(e.code, true);
+      e.preventDefault();
+      return;
+    }
     if (e.key === '+' || e.key === '=') {
       this._zoomBy(KEY_ZOOM_STEP);
       e.preventDefault();
@@ -494,6 +537,72 @@ export class MapView {
       this._zoomBy(1 / KEY_ZOOM_STEP);
       e.preventDefault();
     }
+  }
+
+  private _isMoveCode(code: string): boolean {
+    return (
+      code === 'KeyW' || code === 'KeyA' || code === 'KeyS' || code === 'KeyD' ||
+      code === 'ArrowUp' || code === 'ArrowDown' || code === 'ArrowLeft' || code === 'ArrowRight'
+    );
+  }
+
+  private _setMoveKey(code: string, down: boolean): void {
+    const k = this._keys;
+    switch (code) {
+      case 'KeyW': case 'ArrowUp': k.up = down; break;
+      case 'KeyS': case 'ArrowDown': k.down = down; break;
+      case 'KeyA': case 'ArrowLeft': k.left = down; break;
+      case 'KeyD': case 'ArrowRight': k.right = down; break;
+    }
+  }
+
+  private _releaseInput(): void {
+    this._keys.up = this._keys.down = this._keys.left = this._keys.right = false;
+    this._stick = { active: false, dirX: 0, dirZ: 0, strength: 0 };
+  }
+
+  /** Virtual joystick (touch): screen-relative direction, same controller as the keys. */
+  setStickDirection(dir: StickDirection): void {
+    this._stick = dir;
+  }
+
+  /** A short tap that landed on the joystick zone: still selects what is under the finger. */
+  tapAt(x: number, y: number): void {
+    if (!this._active) return;
+    const id = this._pickTolerant(x, y);
+    if (id) this.select(id);
+  }
+
+  /**
+   * Wanted ground direction from keys / stick, rotated by the camera yaw so that screen up is
+   * away from the viewer and screen right is right on screen (also with a tilted camera).
+   */
+  private _readInput(): void {
+    const k = this._keys;
+    let sx = (k.right ? 1 : 0) - (k.left ? 1 : 0);
+    let sy = (k.up ? 1 : 0) - (k.down ? 1 : 0);
+    let strength = 1;
+    if (sx === 0 && sy === 0 && this._stick.active) {
+      sx = this._stick.dirX;
+      sy = -this._stick.dirZ;
+      strength = this._stick.strength;
+    } else if (sx !== 0 || sy !== 0) {
+      const l = Math.hypot(sx, sy);
+      sx /= l;
+      sy /= l;
+    } else {
+      strength = 0;
+    }
+    this._camera.getWorldDirection(this._forward);
+    let fx = this._forward.x;
+    let fz = this._forward.z;
+    const fl = Math.hypot(fx, fz) || 1;
+    fx /= fl;
+    fz /= fl;
+    // forward = (fx, fz) is "up on screen"; right = (-fz, fx)
+    this._inputX = fx * sy - fz * sx;
+    this._inputZ = fz * sy + fx * sx;
+    this._inputStrength = strength;
   }
 
   /** `_pick` with a ring of extra samples around the tap, so fingertips can hit small targets. */
@@ -580,20 +689,98 @@ export class MapView {
     if (runner.isParkedAt(stop.x, stop.z)) {
       // Already standing there: just open the card
       this._scene?.pop(id);
-      this._opts.onArrive(id);
+      this._markPadFired(id);
+      this._showCard(id);
       return;
     }
 
-    this._opts.onDepart();
+    this._closeCard();
     const started = runner.runTo(id, placement.stop, point.accent, { x: placement.x, z: placement.z });
     if (!started) {
       this._scene?.pop(id);
-      this._opts.onArrive(id);
+      this._showCard(id);
       return;
     }
+    this._player.vx = this._player.vz = 0;
     // A fresh run re-enables auto-follow (the user's own panning cancelled the previous one)
     this._follow = true;
-    if (immediate) this._opts.onArrive(id);
+    if (immediate) this._showCard(id);
+  }
+
+  private _showCard(id: string): void {
+    this._cardOpen = true;
+    this._opts.onArrive(id);
+  }
+
+  private _closeCard(): void {
+    this._cardOpen = false;
+    this._opts.onDepart();
+  }
+
+  private _markPadFired(id: string): void {
+    this._padFired.set(id, 0);
+  }
+
+  /** Free movement: takeover from a run, drive the player, release when stopped. */
+  private _updatePlayer(robot: RobotActor, runner: RobotRunner, dt: number): void {
+    this._readInput();
+    const pushing = this._inputStrength > 0;
+    if (pushing && !this._wasPushing) this._follow = true;
+    this._wasPushing = pushing;
+
+    if (pushing && !runner.manual) {
+      // Takeover: cancel the auto-run (and its dashed line) and continue from where the robot is
+      const speed = runner.speed;
+      runner.cancelRun();
+      this._player.reset(robot.position.x, robot.position.z, runner.heading, speed);
+      if (this._cardOpen) this._closeCard();
+    }
+    if (!runner.manual && !pushing) return;
+
+    this._player.step(dt, this._inputX, this._inputZ, this._inputStrength, this._clamp);
+    robot.setPosition(this._player.x, this._player.z);
+    runner.driveManual(this._player.speed, this._player.heading, this._player.turnRate);
+    if (!pushing && this._player.speed < 0.05) {
+      this._player.vx = this._player.vz = 0;
+      runner.endManual();
+    }
+  }
+
+  /** Standing on a stop pad for a moment opens its card (WASD / joystick users get cards too). */
+  private _updatePads(robot: RobotActor, runner: RobotRunner, dt: number): void {
+    let current: string | null = null;
+    if (!runner.running) {
+      const p = robot.position;
+      let best = PAD_TRIGGER_RADIUS;
+      for (const pad of this._pads) {
+        const d = Math.hypot(p.x - pad.x, p.z - pad.z);
+        if (d < best) {
+          best = d;
+          current = pad.id;
+        }
+      }
+    }
+    if (current !== this._padCurrent) {
+      this._padCurrent = current;
+      this._padDwell = 0;
+    } else if (current) {
+      this._padDwell += dt;
+    }
+    for (const [id, away] of this._padFired) {
+      if (id === current) {
+        this._padFired.set(id, 0);
+      } else if (away + dt > PAD_REARM_SECONDS) {
+        this._padFired.delete(id);
+      } else {
+        this._padFired.set(id, away + dt);
+      }
+    }
+    if (current && this._padDwell >= PAD_DWELL_SECONDS && !this._padFired.has(current)) {
+      this._markPadFired(current);
+      this.setSelected(current);
+      this._scene?.pop(current);
+      this._showCard(current);
+    }
   }
 
   // ------------------------------------------------------------------ frame
@@ -616,6 +803,10 @@ export class MapView {
     }
 
     const robot = this._robot;
+    if (robot && this._runner) {
+      this._updatePlayer(robot, this._runner, dt);
+      this._updatePads(robot, this._runner, dt);
+    }
     if (robot) {
       this._runner?.update(dt, this._time, this._ppu, this._reduceMotion);
       this._lights?.update(robot.position, dt);

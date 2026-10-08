@@ -196,8 +196,19 @@ body.touch-ui .quality-toggle {
   right: calc(var(--safe-right) + var(--touch-edge));
   bottom: calc(var(--safe-bottom) + var(--touch-edge) + 68px);
 }
-body[data-view='map'] .touch-controls {
+/* Map view: the joystick moves the map robot; the vehicle reset button makes no sense there.
+ * The legend drawer moves to the bottom-right (the thumb zone on the left belongs to the stick)
+ * and the stick zone gives way while the drawer is open. */
+body[data-view='map'] .touch-controls__reset {
   display: none;
+}
+body.touch-ui[data-view='map'] .map-legend {
+  left: auto;
+  right: calc(var(--safe-right) + 10px);
+  bottom: calc(var(--safe-bottom) + 10px);
+}
+body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
