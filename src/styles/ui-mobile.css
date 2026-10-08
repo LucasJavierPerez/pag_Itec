@@ -223,7 +223,7 @@ body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
 /* === Coarse pointers: every interactive target is at least 44x44 === */
 @media (pointer: coarse) {
   .skin-picker__panel {
-    width: calc(4 * var(--touch-target) + 3 * 8px + 24px);
+    width: max(232px, calc(4 * var(--touch-target) + 3 * 8px + 24px));
   }
   .skin-picker__grid {
     grid-template-columns: repeat(4, var(--touch-target));
@@ -407,6 +407,8 @@ body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
   .skin-picker__panel {
     z-index: 46;
     max-width: calc(100vw - 20px - var(--safe-left) - var(--safe-right));
+    max-height: calc(100vh - 20px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    max-height: calc(100dvh - 20px - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
   .bot-bubble {
     max-width: min(260px, calc(100vw - 24px));

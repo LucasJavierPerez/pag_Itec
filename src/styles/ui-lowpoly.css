@@ -702,7 +702,7 @@ body[data-view='map'] #controls-hint {
   top: 0;
   right: 16px;
   z-index: 45;
-  width: 214px;
+  width: 232px;
   padding: 10px 12px 12px;
   color: var(--text-primary);
   background: var(--ui-surface);
@@ -769,6 +769,108 @@ body[data-view='map'] #controls-hint {
     transition: none;
   }
   .skin-picker__swatch:hover {
+    transform: none;
+  }
+}
+
+/* Skin picker: character cards (live thumbnails) above the colour swatches */
+.skin-picker__panel {
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.skin-picker__section + .skin-picker__section {
+  margin-top: 12px;
+}
+.skin-picker__heading {
+  margin: 0 0 6px;
+  color: var(--text-secondary);
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.skin-picker__characters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.skin-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 3px 3px 4px;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  font-size: 0.74em;
+  line-height: 1.15;
+  text-align: center;
+  background: var(--ui-btn-bg);
+  border: var(--ui-btn-border);
+  border-radius: var(--ui-btn-radius);
+  clip-path: var(--ui-btn-clip);
+  box-shadow: var(--ui-btn-shadow);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s, background 0.15s;
+}
+.skin-card:hover {
+  background: var(--ui-btn-hover);
+  transform: translateY(-1px);
+}
+.skin-card[aria-checked='true'] {
+  background: var(--ui-active-bg);
+  color: var(--ui-active-fg);
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 1px;
+}
+.skin-card:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+.skin-card__thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: calc(var(--ui-btn-radius) * 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+.skin-card__thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+.skin-card__badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2em;
+  font-weight: 800;
+  opacity: 0.7;
+}
+.skin-card__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skin-card {
+    transition: none;
+  }
+  .skin-card:hover {
     transform: none;
   }
 }

@@ -203,7 +203,7 @@ export class MapView {
 
     this.legend = new MapLegend((id, e) => this.select(id, e.shiftKey));
 
-    this.skinPicker = new SkinPicker();
+    this.skinPicker = new SkinPicker({ getStyleId: () => this._opts.getStyleId() });
 
     const hud = document.createElement('div');
     hud.className = 'map-hud';
