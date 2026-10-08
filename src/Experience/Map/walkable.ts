@@ -1,4 +1,16 @@
-import { EDGES, NODES, PLACEMENTS, PLAZA_ID, PLAZA_RADIUS, ROAD_WIDTH, STOP_PAD_RADIUS } from './mapLayout.ts';
+import {
+  ADA_SECRET,
+  EDGES,
+  NODES,
+  PLACEMENTS,
+  PLAZA_ID,
+  PLAZA_RADIUS,
+  ROAD_WIDTH,
+  SECRET_PAD_WALK_RADIUS,
+  SECRET_PATH,
+  SECRET_PATH_HALF_WIDTH,
+  STOP_PAD_RADIUS,
+} from './mapLayout.ts';
 
 /**
  * Walkable ground of the map (pure, no THREE): the union of road capsules, the central plaza and
@@ -103,6 +115,12 @@ export function createWalkable(extras: WalkableExtras = {}): Walkable {
     },
   };
 }
+
+/** The hidden path and pad of the Ada Byron easter egg (the extension point of `createWalkable`). */
+export const SECRET_WALK: WalkableExtras = {
+  capsules: SECRET_PATH.map((s) => ({ ...s, r: SECRET_PATH_HALF_WIDTH })),
+  discs: [{ x: ADA_SECRET.x, z: ADA_SECRET.z, r: SECRET_PAD_WALK_RADIUS }],
+};
 
 /** The base region (roads, plaza, stop pads). */
 const BASE = createWalkable();

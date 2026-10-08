@@ -110,6 +110,7 @@ const mapView = new MapView({
     });
   },
   onDepart: () => infoPanel.hide(),
+  onSecret: (entry) => infoPanel.showEntry(entry),
 });
 
 // While the map tab is active the explorer loop is paused, so the wipe cannot run: apply directly

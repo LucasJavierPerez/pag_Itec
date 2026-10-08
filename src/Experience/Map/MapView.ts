@@ -22,7 +22,9 @@ import { BOTS } from './botSim.ts';
 import { botLine, buildBotFacts } from './botFacts.ts';
 import { getSharedTimeMs } from './sharedTime.ts';
 import { PlayerMotion } from './playerMotion.ts';
-import { PLAYER_RADIUS, createWalkable } from './walkable.ts';
+import { PLAYER_RADIUS, SECRET_WALK, createWalkable } from './walkable.ts';
+import { SecretSpot, isAdaFound, markAdaFound } from './Secret.ts';
+import type { InfoEntry } from '../../UI/InfoPanel.ts';
 import type { StickDirection } from '../../UI/joystickMapping.ts';
 
 // ---- Tunable camera constants
@@ -60,6 +62,20 @@ const PAN_LIMIT_X = MAP_SIZE.w / 2 - 4;
 const PAN_LIMIT_Z_MIN = MAP_SIZE.cz - MAP_SIZE.d / 2 + 4;
 const PAN_LIMIT_Z_MAX = MAP_SIZE.cz + MAP_SIZE.d / 2 - 4;
 
+/** Non-ASCII characters in the URL path are percent-encoded. */
+const ADA_URL = encodeURI('https://www.itecriocuarto.org.ar/adabyron/quién-fue-ada-byron');
+
+const ADA_ENTRY: InfoEntry = {
+  title: 'Secreto descubierto: Ada Byron',
+  subtitle: 'La primera programadora',
+  tag: 'Easter egg',
+  description:
+    'Ada Byron, condesa de Lovelace, publicó en 1843 lo que hoy se considera el primer algoritmo pensado para ser ejecutado por una máquina. Nuestro Secundario lleva su nombre.',
+  highlights: ['1843', 'Primer algoritmo', 'Secundario Ada Byron'],
+  accent: '#c0392b',
+  link: { label: 'Quién fue Ada Byron →', url: ADA_URL },
+};
+
 export interface MapViewOptions {
   quality: QualityController;
   /** Style currently active in the explorer (read on activation). */
@@ -68,6 +84,8 @@ export interface MapViewOptions {
   onArrive: (pointId: string) => void;
   /** A new run starts: close the previous card. */
   onDepart: () => void;
+  /** Shows a card that is not a map point (the Ada Byron easter egg). */
+  onSecret: (entry: InfoEntry) => void;
 }
 
 /**
@@ -95,7 +113,9 @@ export class MapView {
   private _bubbleBot = -1;
   private _head = new THREE.Vector3();
   private _graph = createLayoutGraph();
-  private _walkable = createWalkable();
+  private _walkable = createWalkable(SECRET_WALK);
+  private _secret: SecretSpot | null = null;
+  private _adaFound = isAdaFound();
   private _player = new PlayerMotion();
   private _clamp = (x: number, z: number, out: { x: number; z: number }): void =>
     this._walkable.clampInto(x, z, PLAYER_RADIUS, out);
@@ -339,6 +359,10 @@ export class MapView {
     }
     this._crowd.setShadows(shadows);
     this._crowd.setMapSkin(skin);
+
+    this._secret?.dispose();
+    this._secret = new SecretSpot(skin, quality, this._adaFound);
+    this._three.add(this._secret.root);
 
     this._scene.setSelected(this._selectedId);
     this._builtStyle = styleId;
@@ -789,6 +813,17 @@ export class MapView {
     this._opts.onDepart();
   }
 
+  /** The player stood on the hidden pad: binary rain + the Ada Byron card (shorter once found). */
+  private _discoverAda(): void {
+    const first = !this._adaFound;
+    this._secret?.playRain(this._reduceMotion);
+    this._adaFound = true;
+    this._secret?.setFound(true);
+    markAdaFound();
+    this._opts.onSecret(ADA_ENTRY);
+    window.dispatchEvent(new CustomEvent('secret-found', { detail: { id: 'ada', first } }));
+  }
+
   private _markPadFired(id: string): void {
     this._padFired.set(id, 0);
   }
@@ -881,6 +916,9 @@ export class MapView {
     if (robot && this._runner) {
       this._updatePlayer(robot, this._runner, dt);
       this._updatePads(robot, this._runner, dt);
+      if (this._secret?.update(dt, this._time, this._ppu, robot.position.x, robot.position.z, this._reduceMotion)) {
+        this._discoverAda();
+      }
     }
     if (robot) {
       this._runner?.update(dt, this._time, this._ppu, this._reduceMotion);

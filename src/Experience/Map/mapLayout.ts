@@ -137,3 +137,16 @@ export const DISTRICT_RECTS: DistrictRect[] = [
   { id: 'cursos', cx: -27, cz: 20.5, w: 30, d: 17 },
   { id: 'secundario', cx: 0, cz: 21, w: 16, d: 18 },
 ];
+
+// ---- Easter egg: the punched-card tile hidden behind the Secundario Ada Byron
+/** Where the secret pad is (south-east of the Secundario, off the roads) and its trigger radius. */
+export const ADA_SECRET = { id: 'ada', x: 10, z: 30.6, radius: 1.5 } as const;
+/** Half-width of the hidden path that leads to the pad (reachable only with free movement). */
+export const SECRET_PATH_HALF_WIDTH = 1.1;
+/** Hidden path segments: they start inside the Secundario stop pad and end at the secret pad. */
+export const SECRET_PATH: readonly { ax: number; az: number; bx: number; bz: number }[] = [
+  { ax: 1.5, az: 18, bx: ADA_SECRET.x, bz: 18 },
+  { ax: ADA_SECRET.x, az: 18, bx: ADA_SECRET.x, bz: ADA_SECRET.z },
+];
+/** Walkable pad around the tile (a bit bigger than the trigger radius). */
+export const SECRET_PAD_WALK_RADIUS = ADA_SECRET.radius + 0.9;

@@ -11,6 +11,7 @@ import type { LabelSprite } from './labels.ts';
 import { createOutlineMaterial } from './skins/lowpoly.ts';
 import type { MapQuality, MapSkin } from './skins/index.ts';
 import {
+  ADA_SECRET,
   DISTRICT_RECTS,
   EDGES,
   MAP_SIZE,
@@ -19,6 +20,7 @@ import {
   PLAZA_ID,
   PLAZA_RADIUS,
   ROAD_WIDTH,
+  SECRET_PATH,
 } from './mapLayout.ts';
 
 /** Heights of the flat ground layers (each at least 0.04 apart, no z-fighting). */
@@ -234,6 +236,9 @@ export class MapScene {
       Math.min(...segs.map((s) => distToSegment(x, z, s[0], s[1], s[2], s[3])));
     const blocked = (x: number, z: number): boolean => {
       if (roadDist(x, z) < ROAD_WIDTH / 2 + 2.6) return true;
+      // Keep the hidden path to the easter egg free of trees (it is never drawn, only walkable)
+      if (Math.hypot(x - ADA_SECRET.x, z - ADA_SECRET.z) < 4) return true;
+      for (const h of SECRET_PATH) if (distToSegment(x, z, h.ax, h.az, h.bx, h.bz) < 2.4) return true;
       if (Math.hypot(x, z) < PLAZA_RADIUS + 2) return true;
       for (const p of PLACEMENTS) {
         if (Math.hypot(x - p.x, z - p.z) < 6.5) return true;
