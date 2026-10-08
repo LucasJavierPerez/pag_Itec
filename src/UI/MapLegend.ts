@@ -1,7 +1,5 @@
 import { DISTRICTS, MAP_POINTS } from './MapData.ts';
-
-/** Same breakpoint as the compact HUD in ui-mobile.css. */
-const COMPACT_QUERY = '(max-width: 640px), (max-height: 480px) and (orientation: landscape)';
+import { COMPACT_QUERY } from './compact.ts';
 
 /**
  * Accessible list of every point of interest, grouped by district. Each entry is a real
