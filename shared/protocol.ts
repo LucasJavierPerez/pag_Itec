@@ -13,6 +13,13 @@ export const CHAT_MIN_INTERVAL_MS = 2000;
 export const MAX_FRAME_BYTES = 1024;
 export const DEFAULT_ROOM = 'main';
 
+/**
+ * Keep-alive: the server auto-answers the raw text frame "ping" with the raw text frame "pong"
+ * without waking the Durable Object (these are NOT JSON). `{t:'ping'}` -> `{t:'pong'}` also works.
+ */
+export const KEEPALIVE_PING = 'ping';
+export const KEEPALIVE_PONG = 'pong';
+
 /** Map bounds (world units) used to clamp positions: MAP_SIZE is 100x68 centred at (0, 1) plus a margin. */
 export const MAP_BOUNDS = { minX: -52, maxX: 52, minZ: -35, maxZ: 37 } as const;
 

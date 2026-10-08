@@ -13,7 +13,11 @@
     "check:skins": "node --experimental-strip-types scripts/check-skins.mjs",
     "check:bots": "node --experimental-strip-types scripts/check-bots.mjs",
     "check:characters": "node --experimental-strip-types scripts/check-characters.mjs",
-    "check:moderation": "node --experimental-strip-types scripts/check-moderation.mjs"
+    "check:moderation": "node --experimental-strip-types scripts/check-moderation.mjs",
+    "dev:server": "wrangler dev --port 8787 --local",
+    "typecheck:server": "tsc -p server/tsconfig.json --noEmit",
+    "typecheck": "tsc --noEmit && npm run typecheck:server",
+    "check:room": "node scripts/check-room.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261008.1",
