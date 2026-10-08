@@ -6,7 +6,8 @@ export default defineConfig({
   // Dev only: forward the realtime endpoints to `npm run dev:server` (wrangler dev on :8787).
   server: {
     proxy: {
-      '/ws': { target: 'ws://localhost:8787', ws: true, changeOrigin: true },
+      // Keep the original Host header so the worker's same-origin check also passes from a phone on the LAN.
+      '/ws': { target: 'ws://localhost:8787', ws: true, changeOrigin: false },
       '/health': { target: 'http://localhost:8787', changeOrigin: true },
     },
   },
