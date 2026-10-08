@@ -98,9 +98,17 @@ export class ClockSync {
     return this._applied;
   }
 
-  /** Estimated server time in ms. */
+  /** Estimated server time in ms (slewed: safe to place the bots with). */
   serverNow(): number {
     return this._now() + this._applied;
+  }
+
+  /**
+   * Estimated server time using the target offset right away. Interpolation buffers use this one:
+   * they render in the past, so an instant correction is invisible, while the slewed clock would lag.
+   */
+  targetNow(): number {
+    return this._now() + this._target;
   }
 }
 
@@ -109,4 +117,8 @@ export const clock = new ClockSync();
 
 export function serverNow(): number {
   return clock.serverNow();
+}
+
+export function targetServerNow(): number {
+  return clock.targetNow();
 }
