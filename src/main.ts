@@ -16,9 +16,7 @@ import { MapView } from './Experience/Map/MapView.ts';
 import { getMapPoint } from './UI/MapData.ts';
 import { HudMenu } from './UI/HudMenu.ts';
 import { TouchControls } from './UI/TouchControls.ts';
-import { RobotPainter } from './Experience/Map/robotPaint.ts';
-import { getSkin } from './Experience/Map/skinState.ts';
-import { getRobotSkin } from './Experience/Map/skins/robotSkins.ts';
+import { getCharacterId, getSkinId } from './Experience/Map/skinState.ts';
 
 // Apply the saved UI theme synchronously so the first paint already uses it
 const initialStyle = getStoredStyle();
@@ -28,22 +26,15 @@ ThemeManager.apply(initialStyle);
 const loadingScreen = new LoadingScreen();
 
 const canvas = document.querySelector<HTMLCanvasElement>('#webgl')!;
-// The chosen robot skin also tints the explorer robot (rebuilt after every style swap)
-let explorerPainter: RobotPainter | null = null;
-function paintExplorerRobot(): void {
-  explorerPainter = new RobotPainter(experience.world.robotMesh);
-  explorerPainter.apply(getSkin());
-}
-
+// The chosen character + palette also dress the explorer (re-applied by World after every style swap)
 const experience = new Experience(canvas, initialStyle, (id) => {
   // Runs while the style-change wipe fully covers the screen
   ThemeManager.apply(id);
   experience.world.setStyle(id);
-  paintExplorerRobot();
 });
-paintExplorerRobot();
-window.addEventListener('skin-change', (e) => {
-  explorerPainter?.apply(getRobotSkin((e as CustomEvent<{ id: string }>).detail?.id));
+experience.world.setAppearance(getCharacterId(), getSkinId());
+window.addEventListener('skin-change', () => {
+  experience.world.setAppearance(getCharacterId(), getSkinId());
 });
 
 const physicsWorld = new PhysicsWorld();
@@ -173,7 +164,7 @@ function animate(): void {
     chassisQuat.w,
   );
 
-  explorerPainter?.update(now / 1000);
+  experience.world.updateAppearance(now / 1000);
 
   // Update experience (camera follow + render)
   experience.update(vehiclePosition, vehicleQuaternion);

@@ -358,6 +358,14 @@ export class RobotRunner {
       squash = reduceMotion ? 0 : Math.abs(Math.sin((WAVE_SECONDS - this._wave) * 8)) * 0.12 * w;
     }
 
+    // Characters swing their limbs with the same stride phase and greeting as the robot rocks
+    this._actor.setMotion({
+      speed01: k,
+      wave: this._wave > 0 && this.state === 'arrived' ? Math.min(1, (this._wave / WAVE_SECONDS) * 3) : 0,
+      phase: this._phase,
+      reduced: reduceMotion,
+    });
+
     // Damped so the pose blends between running, waving and idle
     const blend = 1 - Math.exp(-16 * dt);
     tilt.rotation.x += (lean - tilt.rotation.x) * blend;

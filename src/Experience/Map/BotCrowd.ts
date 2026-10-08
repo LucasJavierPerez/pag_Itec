@@ -16,6 +16,8 @@ export const WAVE_DISTANCE = 3;
 /** ...at most once per this many seconds per bot. */
 export const WAVE_COOLDOWN = 20;
 const WAVE_SECONDS = 1.3;
+/** Share of the player's limb swing that bots use while walking. */
+const BOT_SWING = 0.75;
 const STEP_RATE = 2.2;
 const BOUNCE_HEIGHT = 0.07;
 const SWAY = 0.05;
@@ -166,7 +168,7 @@ export class BotCrowd {
     for (let i = 0; i < BOTS.length; i++) {
       const def = BOTS[i];
       const skin = getRobotSkin(def.skin);
-      const actor = new RobotActor(this._parent, this._styleId, skin, BOT_SCALE);
+      const actor = new RobotActor(this._parent, this._styleId, skin, BOT_SCALE, def.character, this._high ? 'high' : 'low');
       actor.setShadows(this._shadows);
 
       const { texture, aspect } = createTagTexture(def.name, skin.accent, this._high);
@@ -316,6 +318,14 @@ export class BotCrowd {
         lean *= 1 - w;
         if (!reduceMotion) bounce += Math.abs(Math.sin(e * 8)) * 0.1 * w;
       }
+
+      // Characters walk a bit slower than the player runs (softer limb swing)
+      actor.setMotion({
+        speed01: v.motion * BOT_SWING,
+        wave: v.wave > 0 ? Math.min(1, (v.wave / WAVE_SECONDS) * 3) : 0,
+        phase: v.phase,
+        reduced: reduceMotion,
+      });
 
       const tilt = actor.tilt;
       const blend = 1 - Math.exp(-14 * dt);

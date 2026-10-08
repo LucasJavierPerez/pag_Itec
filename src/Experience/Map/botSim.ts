@@ -2,6 +2,7 @@ import { createLayoutGraph, makePolyline, sampleAt, shortestPath } from './roadG
 import type { Polyline, RoadGraph } from './roadGraph.ts';
 import { PLACEMENTS, PLAZA_ID } from './mapLayout.ts';
 import type { RobotSkinId } from './skins/robotSkins.ts';
+import type { CharacterId } from './characters/characterSpec.ts';
 
 /**
  * Deterministic wandering of the map bots (pure: no THREE, no DOM, no clock). The schedule of each
@@ -26,12 +27,14 @@ export interface BotDef {
   id: string;
   name: string;
   skin: RobotSkinId;
+  /** Character the bot wears (it ignores the player's own pick). */
+  character: CharacterId;
 }
 
 export const BOTS: readonly BotDef[] = [
-  { id: 'tecno', name: 'Tecno', skin: 'verde' },
-  { id: 'mecha', name: 'Mecha', skin: 'dorado' },
-  { id: 'turi', name: 'Turi', skin: 'rosa' },
+  { id: 'tecno', name: 'Tecno', skin: 'verde', character: 'robot' },
+  { id: 'mecha', name: 'Mecha', skin: 'dorado', character: 'tecnico' },
+  { id: 'turi', name: 'Turi', skin: 'rosa', character: 'turista' },
 ];
 
 export interface BotState {

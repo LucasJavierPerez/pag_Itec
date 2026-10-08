@@ -6,6 +6,10 @@ import { disposeObject } from '../World/styles/shared/dispose.ts';
 import { RobotPainter } from './robotPaint.ts';
 import { getRobotSkin } from './skins/robotSkins.ts';
 import type { RobotSkin } from './skins/robotSkins.ts';
+import type { MapQuality } from './skins/types.ts';
+import { buildCharacter } from './characters/buildCharacter.ts';
+import type { CharacterInstance, CharacterMotion } from './characters/buildCharacter.ts';
+import type { CharacterId } from './characters/characterSpec.ts';
 
 /** Visual scale of the robot on the map (the style robots are ~1 m tall). */
 export const MAP_ROBOT_SCALE = 1.4;
@@ -48,60 +52,132 @@ export function bakeByMaterial(root: THREE.Object3D): void {
 }
 
 /**
- * The robot that lives on the map. `holder` carries the ground position and heading, `tilt`
- * the run animation (lean / sway), and the style robot sits inside it.
+ * The character that lives on the map (the style's robot or a spec-built character). `holder`
+ * carries the ground position and heading, `tilt` the run animation (lean / sway), and the
+ * visual sits inside it.
  */
 export class RobotActor {
   readonly holder = new THREE.Group();
   readonly tilt = new THREE.Group();
 
   private _scale: number;
+  private _styleId: StyleId;
+  private _characterId: CharacterId;
+  private _quality: MapQuality;
   private _body: THREE.Group | null = null;
+  private _character: CharacterInstance | null = null;
   private _bounce: (time: number) => number = () => 0;
   private _shadows = false;
   private _painter: RobotPainter | null = null;
   private _skin: RobotSkin = getRobotSkin(null);
   private _time = 0;
+  private _motion: CharacterMotion | null = null;
 
-  constructor(parent: THREE.Object3D, styleId: StyleId, skin?: RobotSkin, scale = MAP_ROBOT_SCALE) {
+  constructor(
+    parent: THREE.Object3D,
+    styleId: StyleId,
+    skin?: RobotSkin,
+    scale = MAP_ROBOT_SCALE,
+    characterId: CharacterId = 'robot',
+    quality: MapQuality = 'high',
+  ) {
     this._scale = scale;
+    this._styleId = styleId;
+    this._characterId = characterId;
+    this._quality = quality;
     if (skin) this._skin = skin;
     this.tilt.scale.setScalar(scale);
     this.holder.add(this.tilt);
     parent.add(this.holder);
-    this.setStyle(styleId);
+    this._buildVisual();
   }
 
-  /** Replaces the robot visual by the one of `styleId`, keeping position and heading. */
-  setStyle(styleId: StyleId): void {
-    if (this._body) disposeObject(this._body);
-    const result = STYLES[styleId].createRobot();
-    this._body = result.group;
-    bakeByMaterial(this._body);
-    this._painter = new RobotPainter(this._body);
-    this._painter.apply(this._skin, this._time);
-    this._bounce = result.getBounceOffset;
-    this.tilt.add(this._body);
+  get characterId(): CharacterId {
+    return this._characterId;
+  }
+
+  /** (Re)creates the visual for the current style / character / quality, keeping position and heading. */
+  private _buildVisual(): void {
+    this._disposeVisual();
+    if (this._characterId === 'robot') {
+      const result = STYLES[this._styleId].createRobot();
+      this._body = result.group;
+      bakeByMaterial(this._body);
+      this._painter = new RobotPainter(this._body);
+      this._painter.apply(this._skin, this._time);
+      this._bounce = result.getBounceOffset;
+      this.tilt.add(this._body);
+    } else {
+      this._character = buildCharacter({
+        characterId: this._characterId,
+        paletteId: this._skin.id,
+        styleId: this._styleId,
+        timeSeconds: this._time,
+        quality: this._quality,
+      });
+      if (this._motion) this._character.setMotion(this._motion);
+      this._bounce = (time) => (Math.sin(time * 2.4) + 1) * 0.02;
+      this.tilt.add(this._character.group);
+    }
     this.setShadows(this._shadows);
   }
 
-  /** Recolors the robot (survives `setStyle`). */
+  private _disposeVisual(): void {
+    if (this._body) disposeObject(this._body);
+    this._body = null;
+    this._painter = null;
+    this._character?.dispose();
+    this._character = null;
+  }
+
+  /** Replaces the visual by the one of `styleId`, keeping position and heading. */
+  setStyle(styleId: StyleId): void {
+    this._styleId = styleId;
+    this._buildVisual();
+  }
+
+  /** Switches to another character (no-op when it is already worn). */
+  setCharacter(characterId: CharacterId): void {
+    if (characterId === this._characterId) return;
+    this._characterId = characterId;
+    this._buildVisual();
+  }
+
+  /** Quality only changes characters (limb pivots, outline): the robot is unaffected. */
+  setQuality(quality: MapQuality): void {
+    if (quality === this._quality) return;
+    this._quality = quality;
+    if (this._characterId !== 'robot') this._buildVisual();
+  }
+
+  /** Recolors the visual (survives `setStyle` / `setCharacter`). */
   setSkin(skin: RobotSkin): void {
     this._skin = skin;
     this._painter?.apply(skin, this._time);
+    this._character?.setPalette(skin.id);
   }
 
-  /** Per-frame hook: animated skins (rainbow) cycle their accent. */
+  /** Drives the limb animation of a character (speed, greeting); the robot ignores it. */
+  setMotion(motion: CharacterMotion): void {
+    this._motion = motion;
+    this._character?.setMotion(motion);
+  }
+
+  /** Per-frame hook: animated skins (rainbow) cycle their colours, characters swing their limbs. */
   update(time: number): void {
+    const dt = Math.max(0, Math.min(0.1, time - this._time));
     this._time = time;
     this._painter?.update(time);
+    this._character?.update(dt, time);
   }
 
   setShadows(enabled: boolean): void {
     this._shadows = enabled;
-    this._body?.traverse((o) => {
-      if ((o as THREE.Mesh).isMesh) o.castShadow = enabled;
-    });
+    const apply = (o: THREE.Object3D): void => {
+      if ((o as THREE.Mesh).isMesh && !o.userData.noShadow) o.castShadow = enabled;
+    };
+    this._body?.traverse(apply);
+    this._character?.group.traverse(apply);
   }
 
   get position(): THREE.Vector3 {
@@ -122,8 +198,7 @@ export class RobotActor {
   }
 
   dispose(): void {
-    if (this._body) disposeObject(this._body);
-    this._body = null;
+    this._disposeVisual();
     this.holder.parent?.remove(this.holder);
   }
 }

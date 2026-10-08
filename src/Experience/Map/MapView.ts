@@ -13,7 +13,8 @@ import type { MapLights } from './skins/index.ts';
 import { MAP_SIZE, PAD_TRIGGER_RADIUS, PLACEMENTS } from './mapLayout.ts';
 import { createLayoutGraph } from './roadGraph.ts';
 import { RobotRunner } from './RobotRunner.ts';
-import { getSkin } from './skinState.ts';
+import { getCharacterId, getSkin } from './skinState.ts';
+import type { CharacterId } from './characters/characterSpec.ts';
 import { getRobotSkin } from './skins/robotSkins.ts';
 import { SkinPicker } from '../../UI/SkinPicker.ts';
 import { BotBubble } from '../../UI/BotBubble.ts';
@@ -169,8 +170,9 @@ export class MapView {
   private _onKeyUp = (e: KeyboardEvent): void => this._setMoveKey(e.code, false);
   private _onBlur = (): void => this._releaseInput();
   private _onSkin = (e: Event): void => {
-    const id = (e as CustomEvent<{ id: string }>).detail?.id;
-    this._robot?.setSkin(getRobotSkin(id));
+    const detail = (e as CustomEvent<{ id: string; character?: CharacterId }>).detail;
+    this._robot?.setSkin(getRobotSkin(detail?.id));
+    this._robot?.setCharacter(detail?.character ?? getCharacterId());
   };
   private _onStyle = (): void => {
     this._dirty = true;
@@ -337,7 +339,7 @@ export class MapView {
     this._lights = skin.createLights(this._three, quality);
 
     if (!this._robot) {
-      this._robot = new RobotActor(this._three, styleId, getSkin());
+      this._robot = new RobotActor(this._three, styleId, getSkin(), undefined, getCharacterId(), quality);
       this._robot.setPosition(0, 0);
       this._runner = new RobotRunner(this._robot, this._graph, this._three, {
         onArrive: (id) => {
@@ -346,8 +348,11 @@ export class MapView {
           this._showCard(id);
         },
       });
-    } else if (this._builtStyle !== styleId) {
-      this._robot.setStyle(styleId);
+    } else {
+      this._robot.setSkin(getSkin());
+      this._robot.setCharacter(getCharacterId());
+      this._robot.setQuality(quality);
+      if (this._builtStyle !== styleId) this._robot.setStyle(styleId);
     }
     this._robot.setShadows(shadows);
     this._runner?.setSkin(skin);
