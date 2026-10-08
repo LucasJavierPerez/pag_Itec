@@ -853,6 +853,55 @@ body[data-view='map'] #controls-hint {
   }
 }
 
+/* === Bot speech bubble (Mapa view): follows the bot, dismisses itself after a few seconds === */
+.bot-bubble {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 31;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 9px 12px 10px;
+  pointer-events: none;
+  color: var(--text-primary);
+  background: var(--ui-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: var(--ui-border);
+  border-left: 4px solid var(--bubble-accent, var(--itec-blue-light));
+  border-radius: var(--ui-btn-radius);
+  box-shadow: var(--ui-shadow);
+  font-family: var(--ui-font);
+  font-size: var(--ui-font-size);
+  line-height: 1.35;
+  will-change: transform;
+}
+.bot-bubble[hidden] {
+  display: none;
+}
+.bot-bubble::after {
+  content: '';
+  position: absolute;
+  left: calc(50% + var(--bubble-tip, 0px));
+  bottom: -8px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: var(--ui-surface);
+  border-right: var(--ui-border);
+  border-bottom: var(--ui-border);
+  transform: rotate(45deg);
+}
+.bot-bubble__name {
+  display: block;
+  margin-bottom: 3px;
+  font-weight: 700;
+}
+.bot-bubble__text {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
 .map-legend {
   position: fixed;
   left: 20px;

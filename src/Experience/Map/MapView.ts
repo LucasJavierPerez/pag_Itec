@@ -4,7 +4,7 @@ import { onViewportResize } from '../../utils/viewport.ts';
 import { STYLES } from '../World/styles/index.ts';
 import type { StyleId } from '../World/styles/types.ts';
 import type { QualityController } from '../Post/Quality.ts';
-import { getMapPoint } from '../../UI/MapData.ts';
+import { MAP_POINTS, getMapPoint } from '../../UI/MapData.ts';
 import { MapLegend } from '../../UI/MapLegend.ts';
 import { MapScene } from './MapScene.ts';
 import { RobotActor } from './RobotActor.ts';
@@ -16,6 +16,11 @@ import { RobotRunner } from './RobotRunner.ts';
 import { getSkin } from './skinState.ts';
 import { getRobotSkin } from './skins/robotSkins.ts';
 import { SkinPicker } from '../../UI/SkinPicker.ts';
+import { BotBubble } from '../../UI/BotBubble.ts';
+import { BotCrowd } from './BotCrowd.ts';
+import { BOTS } from './botSim.ts';
+import { botLine, buildBotFacts } from './botFacts.ts';
+import { getSharedTimeMs } from './sharedTime.ts';
 import { PlayerMotion } from './playerMotion.ts';
 import { PLAYER_RADIUS, createWalkable } from './walkable.ts';
 import type { StickDirection } from '../../UI/joystickMapping.ts';
@@ -72,6 +77,7 @@ export class MapView {
   readonly root: HTMLDivElement;
   readonly legend: MapLegend;
   readonly skinPicker: SkinPicker;
+  readonly botBubble = new BotBubble();
 
   private _opts: MapViewOptions;
   private _canvas: HTMLCanvasElement;
@@ -83,6 +89,11 @@ export class MapView {
   private _lights: MapLights | null = null;
   private _robot: RobotActor | null = null;
   private _runner: RobotRunner | null = null;
+  private _crowd: BotCrowd | null = null;
+  private _botFacts = buildBotFacts(MAP_POINTS);
+  private _lastFact = -1;
+  private _bubbleBot = -1;
+  private _head = new THREE.Vector3();
   private _graph = createLayoutGraph();
   private _walkable = createWalkable();
   private _player = new PlayerMotion();
@@ -184,7 +195,7 @@ export class MapView {
       this.skinPicker.toggle,
     );
 
-    this.root.append(this._canvas, this._tooltip, hud, this.skinPicker.panel, this.legend.element);
+    this.root.append(this._canvas, this._tooltip, hud, this.skinPicker.panel, this.botBubble.element, this.legend.element);
     document.body.appendChild(this.root);
 
     this._canvas.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -268,6 +279,7 @@ export class MapView {
     window.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('blur', this._onBlur);
     this.skinPicker.close();
+    this.botBubble.hide();
     this._releaseInput();
     this._pointers.clear();
     this._drag = null;
@@ -319,6 +331,14 @@ export class MapView {
     }
     this._robot.setShadows(shadows);
     this._runner?.setSkin(skin);
+
+    if (!this._crowd) this._crowd = new BotCrowd(this._three, styleId, quality);
+    else {
+      this._crowd.setStyle(styleId);
+      this._crowd.setQuality(quality);
+    }
+    this._crowd.setShadows(shadows);
+    this._crowd.setMapSkin(skin);
 
     this._scene.setSelected(this._selectedId);
     this._builtStyle = styleId;
@@ -507,6 +527,12 @@ export class MapView {
       this._canvas.classList.remove('map-view__canvas--dragging');
       if (drag && !drag.moved && !cancelled && performance.now() - drag.downTime < 700) {
         const touch = e.pointerType !== 'mouse';
+        const bot = this._pickBot(e.clientX, e.clientY, touch);
+        if (bot >= 0) {
+          this._lastTap = null;
+          this._talkTo(bot);
+          return;
+        }
         const id = touch ? this._pickTolerant(e.clientX, e.clientY) : this._pick(e.clientX, e.clientY);
         if (id) {
           this._lastTap = null;
@@ -616,6 +642,39 @@ export class MapView {
     this._inputX = fx * sy - fz * sx;
     this._inputZ = fz * sy + fx * sx;
     this._inputStrength = strength;
+  }
+
+  /** Index of the bot under the screen position (head/body area), or -1. Bots are not raycast. */
+  private _pickBot(px: number, py: number, touch: boolean): number {
+    const crowd = this._crowd;
+    if (!crowd) return -1;
+    const radius = Math.max(touch ? 26 : 18, this._ppu * 1.0);
+    let best = -1;
+    let bestD = radius;
+    for (let i = 0; i < crowd.states.length; i++) {
+      crowd.headPosition(i, this._head).project(this._camera);
+      const sx = (this._head.x * 0.5 + 0.5) * this._w;
+      const sy = (-this._head.y * 0.5 + 0.5) * this._h;
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /** Tap / click on a bot: it waves and says a short line with a real ITEC fact. */
+  private _talkTo(index: number): void {
+    const bot = BOTS[index];
+    if (!bot || this._botFacts.length === 0) return;
+    let k = Math.floor(Math.random() * this._botFacts.length);
+    if (k === this._lastFact) k = (k + 1) % this._botFacts.length;
+    this._lastFact = k;
+    this._crowd?.wave(index, this._time);
+    this._bubbleBot = index;
+    const point = getMapPoint(this._botFacts[k].pointId);
+    this.botBubble.show(bot.name, botLine(bot.name, this._botFacts[k]), point?.accent ?? '#3498db');
   }
 
   /** `_pick` with a ring of extra samples around the tap, so fingertips can hit small targets. */
@@ -811,7 +870,10 @@ export class MapView {
     this._updateZoom(dt);
 
     if (this._hoverRequest) {
-      this._setHover(this._pick(this._hoverRequest.x, this._hoverRequest.y));
+      const overBot = this._pickBot(this._hoverRequest.x, this._hoverRequest.y, false) >= 0;
+      this._setHover(overBot ? null : this._pick(this._hoverRequest.x, this._hoverRequest.y));
+      if (overBot) this._canvas.style.cursor = 'pointer';
+      else if (!this._hoverId) this._canvas.style.cursor = '';
       this._hoverRequest = null;
     }
 
@@ -825,6 +887,14 @@ export class MapView {
       robot.update(this._time);
       this._lights?.update(robot.position, dt);
       if (this._follow) this._followRobot(robot.position, dt);
+    }
+
+    if (this._crowd && robot) {
+      this._crowd.update(dt, this._time, getSharedTimeMs(), this._ppu, this._reduceMotion, robot.position);
+      if (this.botBubble.visible && this._bubbleBot >= 0) {
+        this._crowd.headPosition(this._bubbleBot, this._head).project(this._camera);
+        this.botBubble.setPosition((this._head.x * 0.5 + 0.5) * this._w, (-this._head.y * 0.5 + 0.5) * this._h);
+      }
     }
 
     this._scene.update({

@@ -39,6 +39,7 @@ body {
 .map-view__canvas,
 .map-hud,
 .skin-picker__panel,
+.bot-bubble,
 .map-legend,
 .view-tabs,
 .style-switcher,
@@ -406,6 +407,10 @@ body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
   .skin-picker__panel {
     z-index: 46;
     max-width: calc(100vw - 20px - var(--safe-left) - var(--safe-right));
+  }
+  .bot-bubble {
+    max-width: min(260px, calc(100vw - 24px));
+    font-size: var(--ui-font-size);
   }
 
   /* Map legend: collapsed bottom-left drawer, hidden while a card is open */

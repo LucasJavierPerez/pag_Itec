@@ -10,7 +10,8 @@
     "check:map": "node --experimental-strip-types scripts/check-roadgraph.mjs",
     "check:touch": "node --experimental-strip-types scripts/check-joystick.mjs",
     "check:walkable": "node --experimental-strip-types scripts/check-walkable.mjs",
-    "check:skins": "node --experimental-strip-types scripts/check-skins.mjs"
+    "check:skins": "node --experimental-strip-types scripts/check-skins.mjs",
+    "check:bots": "node --experimental-strip-types scripts/check-bots.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
