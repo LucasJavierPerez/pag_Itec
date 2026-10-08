@@ -686,6 +686,83 @@ body[data-view='map'] #controls-hint {
   outline-offset: 2px;
 }
 
+/* === Skin picker (Mapa view): toggle lives in the HUD, the panel floats beside it === */
+.skin-picker__panel {
+  position: fixed;
+  top: 0;
+  right: 16px;
+  z-index: 45;
+  width: 214px;
+  padding: 10px 12px 12px;
+  color: var(--text-primary);
+  background: var(--ui-surface);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: var(--ui-border);
+  border-radius: var(--ui-radius);
+  box-shadow: var(--ui-shadow);
+  clip-path: var(--ui-clip);
+  font-family: var(--ui-font);
+  font-size: var(--ui-font-size);
+  user-select: none;
+}
+.skin-picker__panel[hidden] {
+  display: none;
+}
+.skin-picker__title {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+.skin-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 40px);
+  gap: 8px;
+}
+.skin-picker__swatch {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  cursor: pointer;
+  border: var(--ui-btn-border);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--skin-panel) 0 58%, var(--skin-accent) 58% 100%);
+  box-shadow: inset 0 0 0 3px var(--skin-joint), var(--ui-btn-shadow);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s;
+}
+.skin-picker__swatch--rainbow {
+  background: conic-gradient(#ff4d4d, #ffd24d, #5dff7a, #4dd2ff, #8a4dff, #ff4dd2, #ff4d4d);
+}
+.skin-picker__swatch:hover {
+  transform: scale(1.08);
+}
+.skin-picker__swatch[aria-pressed='true'] {
+  outline: 3px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+.skin-picker__swatch:focus-visible,
+.skin-picker__toggle:focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 3px;
+}
+.skin-picker__toggle--open {
+  background: var(--ui-active-bg);
+  color: var(--ui-active-fg);
+}
+.skin-picker__name {
+  margin: 10px 0 0;
+  color: var(--text-secondary);
+  font-size: 0.9em;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skin-picker__swatch {
+    transition: none;
+  }
+  .skin-picker__swatch:hover {
+    transform: none;
+  }
+}
+
 .map-legend {
   position: fixed;
   left: 20px;

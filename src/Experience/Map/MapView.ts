@@ -13,6 +13,9 @@ import type { MapLights } from './skins/index.ts';
 import { MAP_SIZE, PAD_TRIGGER_RADIUS, PLACEMENTS } from './mapLayout.ts';
 import { createLayoutGraph } from './roadGraph.ts';
 import { RobotRunner } from './RobotRunner.ts';
+import { getSkin } from './skinState.ts';
+import { getRobotSkin } from './skins/robotSkins.ts';
+import { SkinPicker } from '../../UI/SkinPicker.ts';
 import { PlayerMotion } from './playerMotion.ts';
 import { PLAYER_RADIUS, createWalkable } from './walkable.ts';
 import type { StickDirection } from '../../UI/joystickMapping.ts';
@@ -68,6 +71,7 @@ export interface MapViewOptions {
 export class MapView {
   readonly root: HTMLDivElement;
   readonly legend: MapLegend;
+  readonly skinPicker: SkinPicker;
 
   private _opts: MapViewOptions;
   private _canvas: HTMLCanvasElement;
@@ -133,6 +137,10 @@ export class MapView {
   private _onKey = (e: KeyboardEvent): void => this._handleKey(e);
   private _onKeyUp = (e: KeyboardEvent): void => this._setMoveKey(e.code, false);
   private _onBlur = (): void => this._releaseInput();
+  private _onSkin = (e: Event): void => {
+    const id = (e as CustomEvent<{ id: string }>).detail?.id;
+    this._robot?.setSkin(getRobotSkin(id));
+  };
   private _onStyle = (): void => {
     this._dirty = true;
     if (this._active) this._rebuild();
@@ -162,6 +170,8 @@ export class MapView {
 
     this.legend = new MapLegend((id, e) => this.select(id, e.shiftKey));
 
+    this.skinPicker = new SkinPicker();
+
     const hud = document.createElement('div');
     hud.className = 'map-hud';
     hud.setAttribute('role', 'group');
@@ -171,9 +181,10 @@ export class MapView {
       this._hudButton('−', 'Alejar', () => this._zoomBy(1 / KEY_ZOOM_STEP)),
       this._hudButton('Centrar', 'Centrar el mapa en el robot', () => this.centerOnRobot(), 'map-hud__button--wide'),
       this._hudButton('Ver todo', 'Ver todo el mapa', () => this.resetView(), 'map-hud__button--wide'),
+      this.skinPicker.toggle,
     );
 
-    this.root.append(this._canvas, this._tooltip, hud, this.legend.element);
+    this.root.append(this._canvas, this._tooltip, hud, this.skinPicker.panel, this.legend.element);
     document.body.appendChild(this.root);
 
     this._canvas.addEventListener('pointerdown', (e) => this._onPointerDown(e));
@@ -216,6 +227,7 @@ export class MapView {
       this._renderer = new THREE.WebGLRenderer({ canvas: this._canvas, antialias: true });
       this._renderer.outputColorSpace = THREE.SRGBColorSpace;
       window.addEventListener('style-change', this._onStyle);
+      window.addEventListener('skin-change', this._onSkin);
       this._opts.quality.addEventListener('change', this._onQuality);
       this._resize();
       this.resetView(true);
@@ -255,6 +267,7 @@ export class MapView {
     window.removeEventListener('keydown', this._onKey);
     window.removeEventListener('keyup', this._onKeyUp);
     window.removeEventListener('blur', this._onBlur);
+    this.skinPicker.close();
     this._releaseInput();
     this._pointers.clear();
     this._drag = null;
@@ -292,7 +305,7 @@ export class MapView {
     this._lights = skin.createLights(this._three, quality);
 
     if (!this._robot) {
-      this._robot = new RobotActor(this._three, styleId);
+      this._robot = new RobotActor(this._three, styleId, getSkin());
       this._robot.setPosition(0, 0);
       this._runner = new RobotRunner(this._robot, this._graph, this._three, {
         onArrive: (id) => {
@@ -525,7 +538,7 @@ export class MapView {
     if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
     if (this._isMoveCode(e.code)) {
       // Arrow keys belong to the tab bar while it has focus (tab navigation)
-      if (e.code.startsWith('Arrow') && el?.closest('[role="tablist"]')) return;
+      if (e.code.startsWith('Arrow') && el?.closest('[role="tablist"], .skin-picker')) return;
       this._setMoveKey(e.code, true);
       e.preventDefault();
       return;
@@ -809,6 +822,7 @@ export class MapView {
     }
     if (robot) {
       this._runner?.update(dt, this._time, this._ppu, this._reduceMotion);
+      robot.update(this._time);
       this._lights?.update(robot.position, dt);
       if (this._follow) this._followRobot(robot.position, dt);
     }

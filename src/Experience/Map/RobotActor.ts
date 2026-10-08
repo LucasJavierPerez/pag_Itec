@@ -3,6 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { STYLES } from '../World/styles/index.ts';
 import type { StyleId } from '../World/styles/types.ts';
 import { disposeObject } from '../World/styles/shared/dispose.ts';
+import { RobotPainter } from './robotPaint.ts';
+import { getRobotSkin } from './skins/robotSkins.ts';
+import type { RobotSkin } from './skins/robotSkins.ts';
 
 /** Visual scale of the robot on the map (the style robots are ~1 m tall). */
 export const MAP_ROBOT_SCALE = 1.4;
@@ -52,12 +55,18 @@ export class RobotActor {
   readonly holder = new THREE.Group();
   readonly tilt = new THREE.Group();
 
+  private _scale: number;
   private _body: THREE.Group | null = null;
   private _bounce: (time: number) => number = () => 0;
   private _shadows = false;
+  private _painter: RobotPainter | null = null;
+  private _skin: RobotSkin = getRobotSkin(null);
+  private _time = 0;
 
-  constructor(parent: THREE.Object3D, styleId: StyleId) {
-    this.tilt.scale.setScalar(MAP_ROBOT_SCALE);
+  constructor(parent: THREE.Object3D, styleId: StyleId, skin?: RobotSkin, scale = MAP_ROBOT_SCALE) {
+    this._scale = scale;
+    if (skin) this._skin = skin;
+    this.tilt.scale.setScalar(scale);
     this.holder.add(this.tilt);
     parent.add(this.holder);
     this.setStyle(styleId);
@@ -69,9 +78,23 @@ export class RobotActor {
     const result = STYLES[styleId].createRobot();
     this._body = result.group;
     bakeByMaterial(this._body);
+    this._painter = new RobotPainter(this._body);
+    this._painter.apply(this._skin, this._time);
     this._bounce = result.getBounceOffset;
     this.tilt.add(this._body);
     this.setShadows(this._shadows);
+  }
+
+  /** Recolors the robot (survives `setStyle`). */
+  setSkin(skin: RobotSkin): void {
+    this._skin = skin;
+    this._painter?.apply(skin, this._time);
+  }
+
+  /** Per-frame hook: animated skins (rainbow) cycle their accent. */
+  update(time: number): void {
+    this._time = time;
+    this._painter?.update(time);
   }
 
   setShadows(enabled: boolean): void {
@@ -95,7 +118,7 @@ export class RobotActor {
 
   /** The style's own idle bob (the explorer uses the same function). */
   idleBounce(time: number): number {
-    return this._bounce(time) * MAP_ROBOT_SCALE;
+    return this._bounce(time) * this._scale;
   }
 
   dispose(): void {

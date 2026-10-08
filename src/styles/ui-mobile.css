@@ -38,6 +38,7 @@ body {
 #webgl,
 .map-view__canvas,
 .map-hud,
+.skin-picker__panel,
 .map-legend,
 .view-tabs,
 .style-switcher,
@@ -220,6 +221,16 @@ body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
 
 /* === Coarse pointers: every interactive target is at least 44x44 === */
 @media (pointer: coarse) {
+  .skin-picker__panel {
+    width: calc(4 * var(--touch-target) + 3 * 8px + 24px);
+  }
+  .skin-picker__grid {
+    grid-template-columns: repeat(4, var(--touch-target));
+  }
+  .skin-picker__swatch {
+    width: var(--touch-target);
+    height: var(--touch-target);
+  }
   .style-switcher__button,
   .quality-toggle,
   .view-tabs__tab,
@@ -391,6 +402,10 @@ body.touch-ui[data-view='map']:has(.map-legend--open) .touch-controls__zone {
   .map-hud__button {
     min-width: var(--touch-target);
     min-height: var(--touch-target);
+  }
+  .skin-picker__panel {
+    z-index: 46;
+    max-width: calc(100vw - 20px - var(--safe-left) - var(--safe-right));
   }
 
   /* Map legend: collapsed bottom-left drawer, hidden while a card is open */
