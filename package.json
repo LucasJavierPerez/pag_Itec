@@ -13,6 +13,7 @@
     "check:skins": "node --experimental-strip-types scripts/check-skins.mjs",
     "check:bots": "node --experimental-strip-types scripts/check-bots.mjs",
     "check:characters": "node --experimental-strip-types scripts/check-characters.mjs",
+    "check:net": "node --experimental-strip-types scripts/check-net.mjs",
     "check:moderation": "node --experimental-strip-types scripts/check-moderation.mjs",
     "dev:server": "wrangler dev --port 8787 --local",
     "typecheck:server": "tsc -p server/tsconfig.json --noEmit",
