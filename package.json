@@ -11,7 +11,8 @@
     "check:touch": "node --experimental-strip-types scripts/check-joystick.mjs",
     "check:walkable": "node --experimental-strip-types scripts/check-walkable.mjs",
     "check:skins": "node --experimental-strip-types scripts/check-skins.mjs",
-    "check:bots": "node --experimental-strip-types scripts/check-bots.mjs"
+    "check:bots": "node --experimental-strip-types scripts/check-bots.mjs",
+    "check:characters": "node --experimental-strip-types scripts/check-characters.mjs"
   },
   "devDependencies": {
     "typescript": "~6.0.2",
