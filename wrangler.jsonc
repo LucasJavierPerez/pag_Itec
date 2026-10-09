@@ -1,7 +1,15 @@
 {
   "name": "pag-itec",
+  "main": "server/index.ts",
   "compatibility_date": "2025-09-01",
   "assets": {
-    "directory": "./dist"
-  }
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/ws", "/health"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "MAP_ROOM", "class_name": "MapRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MapRoom"] }],
+  "observability": { "enabled": true }
 }

@@ -1,24 +1,20 @@
 {
   "compilerOptions": {
-    "target": "es2023",
+    "target": "es2022",
     "module": "esnext",
-    "lib": ["ES2023", "DOM"],
-    "types": ["vite/client"],
-    "allowArbitraryExtensions": true,
+    "lib": ["ES2023"],
+    "types": ["@cloudflare/workers-types"],
     "skipLibCheck": true,
-
-    /* Bundler mode */
+    "strict": true,
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
+    "erasableSyntaxOnly": true,
     "noEmit": true,
-
-    /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "shared"]
+  "include": ["./**/*.ts", "../shared/**/*.ts"]
 }

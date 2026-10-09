@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import type { StyleId } from '../World/styles/types.ts';
 import { stepYaw } from '../Physics/steering.ts';
-import { isCoarsePointer } from '../../utils/device.ts';
 import { RobotActor } from './RobotActor.ts';
 import { BOTS, botStatesAt, createBotSchedule } from './botSim.ts';
 import type { BotSchedule, BotState } from './botSim.ts';
 import { getRobotSkin } from './skins/robotSkins.ts';
+import { NameTag, TAG_PRIORITY, tagHeight } from './nameTag.ts';
+import type { NameTagLayer } from './nameTag.ts';
 import type { MapQuality, MapSkin } from './skins/index.ts';
 
 // ---- Tunable constants
@@ -23,10 +24,8 @@ const BOUNCE_HEIGHT = 0.07;
 const SWAY = 0.05;
 const LEAN = 0.1;
 const TURN_RATE = 8;
-/** Name tags need this many pixels per world unit to be readable (hidden when zoomed further out). */
-export const TAG_MIN_PPU = 9;
-const TAG_HEIGHT_PX = 22 * (isCoarsePointer() ? 1.15 : 1);
-const TAG_Y = 2.75;
+/** Height of the name tag above the ground (same rule as every other character). */
+const TAG_Y = tagHeight(BOT_SCALE);
 const RING_Y = 0.4;
 const RING_SIZE = 2.8;
 const HEAD_Y = 1.1;
@@ -36,49 +35,7 @@ const DUST_LIFE = 0.5;
 const DUST_RATE = 5;
 const DUST_WORLD_SIZE = 0.8;
 
-const hexCss = (n: number): string => `#${n.toString(16).padStart(6, '0')}`;
-
-function createTagTexture(name: string, accent: number, high: boolean): { texture: THREE.CanvasTexture; aspect: number } {
-  const h = high ? 64 : 48;
-  const font = `700 ${Math.round(h * 0.52)}px system-ui, -apple-system, "Segoe UI", sans-serif`;
-  const measure = document.createElement('canvas').getContext('2d')!;
-  measure.font = font;
-  const textW = Math.ceil(measure.measureText(name).width);
-  const pad = Math.round(h * 0.45);
-  const w = textW + pad * 2;
-  const canvas = document.createElement('canvas');
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext('2d')!;
-  ctx.font = font;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  if (high) {
-    // Pill with an accent dot
-    ctx.fillStyle = 'rgba(14, 18, 28, 0.82)';
-    ctx.beginPath();
-    ctx.roundRect(2, 2, w - 4, h - 4, (h - 4) / 2);
-    ctx.fill();
-    ctx.strokeStyle = hexCss(accent);
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(name, w / 2, h / 2 + 2);
-  } else {
-    // Low quality: plain outlined text
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(14, 18, 28, 0.9)';
-    ctx.strokeText(name, w / 2, h / 2 + 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(name, w / 2, h / 2 + 2);
-  }
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return { texture, aspect: w / h };
-}
-
-function createRingTexture(): THREE.CanvasTexture {
+export function createRingTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 128;
   const ctx = canvas.getContext('2d')!;
@@ -93,7 +50,7 @@ function createRingTexture(): THREE.CanvasTexture {
   return new THREE.CanvasTexture(canvas);
 }
 
-function createPuffTexture(): THREE.CanvasTexture {
+export function createPuffTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 64;
   const ctx = canvas.getContext('2d')!;
@@ -110,8 +67,7 @@ function createPuffTexture(): THREE.CanvasTexture {
 
 interface BotView {
   actor: RobotActor;
-  tag: THREE.Sprite;
-  tagAspect: number;
+  tag: NameTag;
   ring: THREE.Mesh;
   heading: number;
   phase: number;
@@ -171,13 +127,8 @@ export class BotCrowd {
       const actor = new RobotActor(this._parent, this._styleId, skin, BOT_SCALE, def.character, this._high ? 'high' : 'low');
       actor.setShadows(this._shadows);
 
-      const { texture, aspect } = createTagTexture(def.name, skin.accent, this._high);
-      const tag = new THREE.Sprite(
-        new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, depthTest: false, toneMapped: false }),
-      );
-      tag.center.set(0.5, 0);
-      tag.renderOrder = 12;
-      this._parent.add(tag);
+      const tag = new NameTag({ text: def.name, accent: skin.accent }, this._high);
+      this._parent.add(tag.sprite);
 
       // Unlit-looking ground ring: black base color, accent emissive, soft alpha texture
       const ring = new THREE.Mesh(
@@ -200,7 +151,6 @@ export class BotCrowd {
       this._views.push({
         actor,
         tag,
-        tagAspect: aspect,
         ring,
         heading: 0,
         phase: i * 1.7,
@@ -215,9 +165,7 @@ export class BotCrowd {
   private _clear(): void {
     for (const v of this._views) {
       v.actor.dispose();
-      v.tag.material.map?.dispose();
-      v.tag.material.dispose();
-      v.tag.removeFromParent();
+      v.tag.dispose();
       (v.ring.material as THREE.Material).dispose();
       v.ring.removeFromParent();
     }
@@ -276,9 +224,9 @@ export class BotCrowd {
     ppu: number,
     reduceMotion: boolean,
     player: THREE.Vector3,
+    tags?: NameTagLayer,
   ): void {
     botStatesAt(this._schedule, timeMs, this.states);
-    const showTags = ppu >= TAG_MIN_PPU;
 
     for (let i = 0; i < this._views.length; i++) {
       const v = this._views[i];
@@ -337,13 +285,8 @@ export class BotCrowd {
 
       v.ring.position.set(s.x, RING_Y, s.z);
 
-      // Name tag: constant size on screen, hidden when zoomed far out
-      v.tag.visible = showTags;
-      if (showTags) {
-        const h = TAG_HEIGHT_PX / ppu;
-        v.tag.scale.set(h * v.tagAspect, h, 1);
-        v.tag.position.set(s.x, TAG_Y + bounce, s.z);
-      }
+      // Name tag: the shared layout decides size, visibility and overlaps
+      tags?.add(v.tag, s.x, TAG_Y + bounce, s.z, TAG_PRIORITY.bot, Math.hypot(player.x - s.x, player.z - s.z));
 
       if (this._high && !reduceMotion && s.state === 'walking') this._carryDust(dt, s);
     }

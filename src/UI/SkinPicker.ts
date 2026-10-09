@@ -6,12 +6,11 @@ import type { CharacterDef } from '../Experience/Map/characters/characterSpec.ts
 import type { StyleId } from '../Experience/World/styles/types.ts';
 import { getStoredStyle } from './ThemeManager.ts';
 import { CharacterThumbs } from './CharacterThumbs.ts';
+import { COMPACT_QUERY } from './compact.ts';
 
 const SWATCH_COLUMNS = 4;
 const CARD_COLUMNS = 3;
 const GAP = 8;
-/** Keep in sync with the compact breakpoint in ui-mobile.css (and COMPACT_QUERY in MapLegend.ts). */
-const COMPACT_QUERY = '(max-width: 640px), (max-height: 480px) and (orientation: landscape)';
 /** Compact sheet: top offset below the tabs row, and share of the viewport height it may use. */
 const SHEET_TOP = 64;
 const SHEET_MAX_VH = 0.6;

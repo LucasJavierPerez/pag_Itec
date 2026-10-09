@@ -685,3 +685,144 @@ body.touch-ui[data-view='map'] .map-legend {
     transition: none;
   }
 }
+
+/* === Online: nickname prompt on phones (top aligned so the keyboard never hides the buttons) === */
+@media (max-width: 640px), (max-height: 640px) {
+  .nick-prompt {
+    align-items: flex-start;
+    padding-top: calc(var(--safe-top) + 12px);
+    padding-right: calc(var(--safe-right) + 12px);
+    padding-bottom: calc(var(--safe-bottom) + 12px);
+    padding-left: calc(var(--safe-left) + 12px);
+  }
+  .nick-prompt__dialog {
+    margin: 0 auto;
+    padding: 16px 16px 14px;
+  }
+  .nick-prompt__text {
+    margin-bottom: 10px;
+  }
+  .nick-prompt__privacy {
+    margin-bottom: 12px;
+  }
+  .nick-prompt__actions {
+    flex-direction: column;
+  }
+  .nick-prompt__button {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+}
+@media (pointer: coarse) {
+  .online-controls__button {
+    min-height: var(--touch-target);
+  }
+}
+
+/* === Chat on phones: round button under the "Centrar" icon + bottom sheet above the keyboard ===
+ * Keep this query in sync with COMPACT_QUERY in src/UI/compact.ts.
+ */
+@media (max-width: 640px), (max-height: 480px) and (orientation: landscape) {
+  .chat {
+    z-index: 48;
+  }
+  .chat__toggle {
+    top: calc(var(--safe-top) + 64px + 40px + 12px);
+    right: calc(var(--safe-right) + 8px);
+    bottom: auto;
+    left: auto;
+    transform: none;
+    justify-content: center;
+    width: var(--touch-target);
+    height: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: 0;
+    border-radius: 50%;
+    clip-path: none;
+  }
+  .chat__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .chat__icon-wrap {
+    display: inline-flex;
+  }
+  .chat__toggle > .chat__dot {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+  }
+  .chat__badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+  }
+  .chat--open .chat__toggle {
+    display: none;
+  }
+  .chat__scrim {
+    position: fixed;
+    inset: 0;
+    background: transparent;
+  }
+  .chat--open .chat__scrim {
+    display: block;
+  }
+  .chat__panel {
+    left: 0;
+    right: 0;
+    bottom: var(--chat-kb, 0px);
+    transform: none;
+    width: auto;
+    height: auto;
+    max-height: min(48dvh, calc(var(--chat-vvh, 100dvh) - 72px));
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    border-radius: 14px 14px 0 0;
+    clip-path: none;
+    z-index: 1;
+  }
+  .chat__grip {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 2px;
+    touch-action: none;
+    cursor: grab;
+  }
+  .chat__grip > span {
+    width: 44px;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: 3px;
+  }
+  .chat__head {
+    padding-top: 2px;
+  }
+  .chat__close {
+    min-width: var(--touch-target);
+    height: var(--touch-target);
+  }
+  .chat__logwrap {
+    min-height: 90px;
+  }
+  .chat__menu {
+    z-index: 3;
+  }
+  /* The joystick gives way while the sheet is open */
+  body.chat-open .touch-controls {
+    visibility: hidden;
+  }
+  .chat-toast {
+    top: calc(var(--safe-top) + 64px);
+  }
+}
+@media (max-height: 480px) and (orientation: landscape) {
+  .chat__panel {
+    max-height: min(68dvh, calc(var(--chat-vvh, 100dvh) - 12px));
+  }
+}
